@@ -236,13 +236,6 @@ async function mergeThreadAsync(
 }
 
 /**
- * Delete a thread (cleanup)
- */
-export function deleteThread(threadId: string): boolean {
-  return threads.delete(threadId);
-}
-
-/**
  * Push a thread's branch to remote
  * 
  * Returns IMMEDIATELY - push happens in background.

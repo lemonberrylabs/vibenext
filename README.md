@@ -27,6 +27,7 @@ Create `app/actions/vibe.ts`:
 "use server";
 
 import { cookies } from "next/headers";
+import { timingSafeEqual } from "node:crypto";
 import {
   createThreadImpl,
   getThreadStateImpl,
@@ -40,9 +41,17 @@ import {
 
 const AUTH_COOKIE = "vibe-auth";
 
-// Auth actions
+// Auth actions (uses timing-safe comparison to prevent timing attacks)
 export async function authenticate(password: string) {
-  if (password !== process.env.VIBE_PASSWORD) {
+  const expected = process.env.VIBE_PASSWORD || "";
+  const passwordBuffer = Buffer.from(password);
+  const expectedBuffer = Buffer.from(expected);
+  
+  // Prevent timing attacks with constant-time comparison
+  const isValid = passwordBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(passwordBuffer, expectedBuffer);
+    
+  if (!isValid) {
     return { success: false, error: "Invalid password" };
   }
   const cookieStore = await cookies();

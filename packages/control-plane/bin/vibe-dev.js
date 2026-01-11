@@ -32,6 +32,8 @@ controlPlane.on("exit", (code) => {
   if (code !== 0 && code !== null) {
     console.error(`❌ Control Plane exited with code ${code}`);
   }
+  // Ensure Next.js is also terminated when control plane exits
+  cleanup();
 });
 
 // Wait a moment for the control plane to start, then start Next.js
