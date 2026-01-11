@@ -134,3 +134,29 @@ export async function checkHealth(): Promise<ActionResult<{ status: string; work
   // Health check doesn't require auth
   return controlPlaneFetch<{ status: string; workingDir: string }>("/health");
 }
+
+/**
+ * List all threads
+ */
+export async function listThreads(): Promise<ActionResult<ThreadState[]>> {
+  const auth = await validateAuth();
+  if (!auth.valid) {
+    return { success: false, error: auth.error };
+  }
+
+  return controlPlaneFetch<ThreadState[]>("/threads");
+}
+
+/**
+ * Switch to a different thread (checks out the branch)
+ */
+export async function switchThread(threadId: string): Promise<ActionResult<ThreadState>> {
+  const auth = await validateAuth();
+  if (!auth.valid) {
+    return { success: false, error: auth.error };
+  }
+
+  return controlPlaneFetch<ThreadState>(`/threads/${threadId}/switch`, {
+    method: "POST",
+  });
+}

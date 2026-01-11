@@ -6,6 +6,7 @@ import {
   getAllThreads,
   sendMessage,
   mergeThread,
+  switchToThread,
 } from "./threads.js";
 import type {
   ChatRequest,
@@ -143,6 +144,31 @@ async function main() {
       }
 
       return result;
+    }
+  );
+
+  // Switch to a thread (checkout its branch)
+  fastify.post<{ Params: { id: string } }>(
+    "/threads/:id/switch",
+    async (request, reply): Promise<ThreadStateResponse | ErrorResponse> => {
+      const { id } = request.params;
+      
+      try {
+        const thread = await switchToThread(id, WORKING_DIR);
+        return {
+          id: thread.id,
+          branchName: thread.branchName,
+          createdAt: thread.createdAt,
+          status: thread.status,
+          history: thread.history,
+          lastCommitHash: thread.lastCommitHash,
+          errorMessage: thread.errorMessage,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        reply.code(400);
+        return { error: message };
+      }
     }
   );
 

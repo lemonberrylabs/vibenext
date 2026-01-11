@@ -21,6 +21,8 @@ export {
   sendPrompt,
   mergeThread,
   checkHealth,
+  listThreads,
+  switchThread,
 } from "./actions/proxy.js";
 
 export {

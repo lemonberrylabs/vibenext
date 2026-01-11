@@ -157,3 +157,36 @@ export async function mergeThread(
 export function deleteThread(threadId: string): boolean {
   return threads.delete(threadId);
 }
+
+/**
+ * Switch to a thread (checkout its branch)
+ */
+export async function switchToThread(
+  threadId: string,
+  workingDir: string
+): Promise<Thread> {
+  const thread = threads.get(threadId);
+  if (!thread) {
+    throw new Error(`Thread ${threadId} not found`);
+  }
+
+  if (thread.status === "RUNNING") {
+    throw new Error("Cannot switch to a thread that is currently running");
+  }
+
+  const gitManager = getGitManager(workingDir);
+
+  // Check for uncommitted changes and handle them
+  const isDirty = await gitManager.isDirty();
+  if (isDirty) {
+    const currentBranch = await gitManager.getCurrentBranch();
+    console.log(`[Threads] Auto-committing changes on '${currentBranch}' before switching...`);
+    await gitManager.autoCommit(`WIP: Auto-save before switching to thread ${threadId.slice(0, 8)}`);
+  }
+
+  // Switch to the thread's branch
+  console.log(`[Threads] Switching to branch '${thread.branchName}'...`);
+  await gitManager.checkout(thread.branchName);
+
+  return thread;
+}

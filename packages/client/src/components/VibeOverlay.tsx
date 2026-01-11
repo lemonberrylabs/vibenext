@@ -7,7 +7,9 @@ import {
   getThreadState, 
   sendPrompt,
   mergeThread,
-  checkHealth 
+  checkHealth,
+  listThreads,
+  switchThread,
 } from "../actions/proxy.js";
 import type { ThreadState, ThreadMessage, ContentBlock } from "../types.js";
 import { LockScreen } from "./LockScreen.js";
@@ -28,9 +30,12 @@ export function VibeOverlay() {
 
   // Thread state
   const [thread, setThread] = useState<ThreadState | null>(null);
+  const [allThreads, setAllThreads] = useState<ThreadState[]>([]);
+  const [showThreadList, setShowThreadList] = useState(false);
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
 
   // Refs
@@ -50,6 +55,14 @@ export function VibeOverlay() {
     const result = await checkHealth();
     setConnectionStatus(result.success ? "connected" : "disconnected");
     return result.success;
+  }, []);
+
+  // Load all threads
+  const loadAllThreads = useCallback(async () => {
+    const result = await listThreads();
+    if (result.success && result.data) {
+      setAllThreads(result.data);
+    }
   }, []);
 
   // Poll for thread updates
@@ -89,6 +102,9 @@ export function VibeOverlay() {
       const isConnected = await checkConnection();
       if (!isConnected) return;
 
+      // Load all threads
+      await loadAllThreads();
+
       const storedThreadId = localStorage.getItem(STORAGE_KEY);
       if (storedThreadId) {
         const result = await getThreadState(storedThreadId);
@@ -111,7 +127,7 @@ export function VibeOverlay() {
     }, 10000);
 
     return () => clearInterval(healthCheckInterval);
-  }, [isAuthenticated, checkConnection, connectionStatus]);
+  }, [isAuthenticated, checkConnection, connectionStatus, loadAllThreads]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -136,6 +152,8 @@ export function VibeOverlay() {
       };
       setThread(newThread);
       localStorage.setItem(STORAGE_KEY, newThread.id);
+      // Refresh thread list
+      loadAllThreads();
     }
   };
 
@@ -160,8 +178,32 @@ export function VibeOverlay() {
       // Clear thread after successful merge
       localStorage.removeItem(STORAGE_KEY);
       setThread(null);
+      // Refresh thread list
+      loadAllThreads();
     } else {
       setMergeError(result.error || result.data?.error || "Merge failed");
+    }
+  };
+
+  // Switch to a different thread
+  const handleSwitchThread = async (threadId: string) => {
+    if (thread?.id === threadId) {
+      setShowThreadList(false);
+      return;
+    }
+
+    setIsSwitching(true);
+    setMergeError(null);
+    
+    const result = await switchThread(threadId);
+    setIsSwitching(false);
+    setShowThreadList(false);
+
+    if (result.success && result.data) {
+      setThread(result.data);
+      localStorage.setItem(STORAGE_KEY, result.data.id);
+    } else {
+      setMergeError(result.error || "Failed to switch thread");
     }
   };
 
@@ -288,7 +330,18 @@ export function VibeOverlay() {
       {/* Branch indicator */}
       <div style={styles.branchBar}>
         <span style={styles.branchIcon}>🌿</span>
-        <code style={styles.branchName}>{thread.branchName}</code>
+        <button
+          onClick={() => setShowThreadList(!showThreadList)}
+          style={styles.branchButton}
+          title={allThreads.length > 1 ? "Click to switch branches" : "Current branch"}
+        >
+          <code style={styles.branchName}>{thread.branchName}</code>
+          {allThreads.length > 1 && (
+            <span style={styles.branchDropdownIcon}>
+              {showThreadList ? "▲" : "▼"}
+            </span>
+          )}
+        </button>
         {thread.status === "RUNNING" && (
           <span style={styles.statusBadge}>Working...</span>
         )}
@@ -315,6 +368,35 @@ export function VibeOverlay() {
           </>
         )}
       </div>
+      
+      {/* Thread list dropdown */}
+      {showThreadList && allThreads.length > 0 && (
+        <div style={styles.threadList}>
+          <div style={styles.threadListHeader}>
+            <span>Switch Branch</span>
+            <span style={styles.threadCount}>{allThreads.length} sessions</span>
+          </div>
+          {allThreads.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => handleSwitchThread(t.id)}
+              disabled={isSwitching}
+              style={{
+                ...styles.threadItem,
+                ...(t.id === thread.id ? styles.threadItemActive : {}),
+              }}
+            >
+              <code style={styles.threadItemBranch}>{t.branchName}</code>
+              <span style={styles.threadItemStatus}>
+                {t.status === "RUNNING" && "⏳"}
+                {t.status === "ERROR" && "⚠️"}
+                {t.status === "IDLE" && t.history.length > 0 && `${t.history.length} msgs`}
+                {t.status === "IDLE" && t.history.length === 0 && "New"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       
       {/* Last commit indicator */}
       {thread.lastCommitHash && (
@@ -581,7 +663,22 @@ const styles: Record<string, React.CSSProperties> = {
   branchName: {
     color: "#10b981",
     fontFamily: "monospace",
+  },
+  branchButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
     flex: 1,
+    background: "none",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  branchDropdownIcon: {
+    fontSize: "8px",
+    color: "#666",
+    marginLeft: "4px",
   },
   statusBadge: {
     padding: "2px 8px",
@@ -643,6 +740,52 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid rgba(239, 68, 68, 0.3)",
     color: "#f87171",
     fontSize: "12px",
+  },
+  threadList: {
+    backgroundColor: "#1a1a1a",
+    borderBottom: "1px solid #333",
+    maxHeight: "200px",
+    overflow: "auto",
+  },
+  threadListHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 12px",
+    fontSize: "11px",
+    color: "#888",
+    borderBottom: "1px solid #2a2a2a",
+    textTransform: "uppercase",
+    fontWeight: 600,
+  },
+  threadCount: {
+    fontWeight: 400,
+    textTransform: "none",
+  },
+  threadItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    padding: "8px 12px",
+    backgroundColor: "transparent",
+    border: "none",
+    borderBottom: "1px solid #2a2a2a",
+    cursor: "pointer",
+    textAlign: "left",
+    color: "#ccc",
+  },
+  threadItemActive: {
+    backgroundColor: "#2a2a4a",
+  },
+  threadItemBranch: {
+    fontFamily: "monospace",
+    fontSize: "11px",
+    color: "#10b981",
+  },
+  threadItemStatus: {
+    fontSize: "10px",
+    color: "#888",
   },
   messages: {
     flex: 1,
@@ -728,5 +871,31 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     borderRadius: "6px",
     cursor: "pointer",
+  },
+  toolUse: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "4px 8px",
+    marginTop: "4px",
+    backgroundColor: "rgba(99, 102, 241, 0.2)",
+    borderRadius: "4px",
+    fontSize: "11px",
+  },
+  toolResult: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "6px",
+    padding: "4px 8px",
+    marginTop: "4px",
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    borderRadius: "4px",
+    fontSize: "11px",
+    maxHeight: "60px",
+    overflow: "hidden",
+  },
+  toolIcon: {
+    fontSize: "12px",
+    flexShrink: 0,
   },
 };
