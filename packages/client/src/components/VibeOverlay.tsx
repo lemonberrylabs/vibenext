@@ -247,7 +247,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
   // Send a message
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!thread || !input.trim() || thread.status === "RUNNING") return;
+    if (!thread || !input.trim() || thread.status === "RUNNING" || thread.operation) return;
 
     const message = input.trim();
     setInput("");
@@ -444,10 +444,11 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
             >
               <code style={styles.threadItemBranch}>{t.branchName}</code>
               <span style={styles.threadItemStatus}>
-                {t.status === "RUNNING" && "⏳"}
-                {t.status === "ERROR" && "⚠️"}
-                {t.status === "IDLE" && t.history.length > 0 && `${t.history.length} msgs`}
-                {t.status === "IDLE" && t.history.length === 0 && "New"}
+                {t.operation && "⏳"}
+                {!t.operation && t.status === "RUNNING" && "⏳"}
+                {!t.operation && t.status === "ERROR" && "⚠️"}
+                {!t.operation && t.status === "IDLE" && t.history.length > 0 && `${t.history.length} msgs`}
+                {!t.operation && t.status === "IDLE" && t.history.length === 0 && "New"}
               </span>
             </button>
           ))}

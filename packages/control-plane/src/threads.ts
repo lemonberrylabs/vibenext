@@ -110,6 +110,10 @@ export function sendMessage(
     throw new Error(`Thread ${threadId} is already processing a message`);
   }
 
+  if (thread.operation) {
+    throw new Error(`Thread ${threadId} has operation '${thread.operation}' in progress`);
+  }
+
   // Update status to RUNNING immediately
   thread.status = "RUNNING";
   thread.errorMessage = undefined;
