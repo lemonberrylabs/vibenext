@@ -2,6 +2,9 @@
  * Control Plane API client
  * These are the implementation functions that user's server actions should delegate to.
  * They are NOT server actions themselves - they're regular async functions.
+ * 
+ * SECURITY: These functions are designed for DEVELOPMENT ONLY.
+ * They will refuse to work in production environments.
  */
 
 import type { 
@@ -16,6 +19,35 @@ const DEFAULT_CONTROL_PLANE_URL = "http://127.0.0.1:3001";
 
 export interface ControlPlaneConfig {
   url?: string;
+  /** 
+   * Override the production check. Only use this if you REALLY know what you're doing.
+   * Setting this to true in production is a SECURITY RISK.
+   */
+  dangerouslyAllowProduction?: boolean;
+}
+
+/**
+ * Check if we're in a production environment
+ */
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+/**
+ * Production guard - returns error result if in production
+ */
+function productionGuard<T>(config?: ControlPlaneConfig): ActionResult<T> | null {
+  if (isProduction() && !config?.dangerouslyAllowProduction) {
+    console.error(
+      "[VibeCoder] SECURITY ERROR: Vibe Coder is disabled in production. " +
+      "This is a development-only tool that should never be exposed in production environments."
+    );
+    return {
+      success: false,
+      error: "Vibe Coder is disabled in production for security reasons.",
+    };
+  }
+  return null;
 }
 
 /**
@@ -26,6 +58,10 @@ async function controlPlaneFetch<T>(
   options: RequestInit = {},
   config?: ControlPlaneConfig
 ): Promise<ActionResult<T>> {
+  // Block in production
+  const productionError = productionGuard<T>(config);
+  if (productionError) return productionError;
+
   const baseUrl = config?.url || process.env.VIBE_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE_URL;
   
   try {

@@ -10,6 +10,12 @@ export interface VibeOverlayProps {
    * These must be implemented in your app using "use server" directive.
    */
   actions: VibeActions;
+  /**
+   * Override the production check. Only use this if you REALLY know what you're doing.
+   * Setting this to true in production is a SECURITY RISK.
+   * @default false
+   */
+  dangerouslyAllowProduction?: boolean;
 }
 
 const STORAGE_KEY = "vibe_active_thread_id";
@@ -17,7 +23,27 @@ const POLL_INTERVAL_MS = 2000;
 
 type ConnectionStatus = "connected" | "disconnected" | "checking";
 
-export function VibeOverlay({ actions }: VibeOverlayProps) {
+/**
+ * Check if we're in production - this is a safety guard
+ */
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: VibeOverlayProps) {
+  // SECURITY: Block rendering in production unless explicitly overridden
+  // This is the first line of defense - even if users forget to conditionally render
+  if (isProduction() && !dangerouslyAllowProduction) {
+    // Log warning in case this somehow gets rendered
+    if (typeof window !== "undefined") {
+      console.warn(
+        "[VibeCoder] Production environment detected. " +
+        "VibeOverlay is automatically disabled for security. " +
+        "This is a development-only tool."
+      );
+    }
+    return null;
+  }
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);

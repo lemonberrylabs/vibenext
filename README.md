@@ -105,25 +105,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html>
       <body>
         {children}
-        {process.env.NODE_ENV === "development" && (
-          <VibeOverlay
-            actions={{
-              authenticate,
-              checkAuth,
-              createThread,
-              getThreadState,
-              sendPrompt,
-              mergeThread,
-              checkHealth,
-              listThreads,
-              switchThread,
-            }}
-          />
-        )}
+        <VibeOverlay
+          actions={{
+            authenticate,
+            checkAuth,
+            createThread,
+            getThreadState,
+            sendPrompt,
+            mergeThread,
+            checkHealth,
+            listThreads,
+            switchThread,
+          }}
+        />
       </body>
     </html>
   );
 }
+```
+
+> **Note:** You don't need to wrap VibeOverlay in a `NODE_ENV` check - it automatically disables itself in production for security.
 ```
 
 ### 5. Run with the CLI
@@ -187,6 +188,41 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
 | `VIBE_PORT` | No | `3001` | Control plane port |
 | `VIBE_CONTROL_PLANE_URL` | No | `http://127.0.0.1:3001` | Control plane URL |
 
+## Security
+
+Vibe Coder is designed as a **development-only tool** with multiple layers of security:
+
+### Automatic Production Protection
+
+1. **Component Level**: `VibeOverlay` automatically returns `null` in production - even if you forget to conditionally render it
+2. **API Level**: All implementation functions (`*Impl`) refuse to execute in production
+3. **Server Level**: Control plane only binds to `127.0.0.1` (localhost)
+4. **Auth Level**: Password protection via HTTP-only cookies
+
+### What happens in production?
+
+- The overlay **will not render** (returns null)
+- API calls **will fail** with security error
+- Control plane **won't be running** anyway
+- Zero security exposure to end users
+
+### Override (Not Recommended)
+
+If you absolutely must use in production (e.g., staging environment):
+
+```tsx
+<VibeOverlay
+  actions={actions}
+  dangerouslyAllowProduction={true}  // ⚠️ SECURITY RISK
+/>
+```
+
+And in your server actions:
+
+```typescript
+createThreadImpl({ dangerouslyAllowProduction: true })
+```
+
 ## Features
 
 - **Isolated Git Branches**: Each coding session creates a new branch (`feat/vibe-{id}`)
@@ -196,6 +232,7 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
 - **HMR Resilient**: Control plane survives Next.js hot reloads
 - **Password Protected**: Simple password gate for development security
 - **Git Lock Handling**: Automatic retry with exponential backoff for Git operations
+- **Production Safe**: Automatically disabled in production environments
 
 ## API Reference
 
