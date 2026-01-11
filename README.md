@@ -129,7 +129,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ```
 
 > **Note:** You don't need to wrap VibeOverlay in a `NODE_ENV` check - it automatically disables itself in production for security.
-```
 
 ### 5. Run with the CLI
 
@@ -260,7 +259,10 @@ createThreadImpl({ dangerouslyAllowProduction: true })
 
 ```typescript
 interface VibeOverlayProps {
+  /** Server actions that the overlay will use */
   actions: VibeActions;
+  /** Override production safety check (NOT RECOMMENDED) */
+  dangerouslyAllowProduction?: boolean;
 }
 
 interface VibeActions {
@@ -275,9 +277,32 @@ interface VibeActions {
   listThreads: () => Promise<ActionResult<ThreadState[]>>;
   switchThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
 }
+```
 
-// All mutating operations (createThread, sendPrompt, mergeThread, pushThread, switchThread)
-// return immediately with acknowledgment. Poll getThreadState for completion.
+> **Note:** All mutating operations (`createThread`, `sendPrompt`, `mergeThread`, `pushThread`, `switchThread`) return immediately with acknowledgment. Poll `getThreadState` for completion by checking the `operation` field.
+
+### Key Types
+
+```typescript
+type ThreadStatus = "IDLE" | "RUNNING" | "ERROR";
+type OperationType = "creating" | "switching" | "merging" | "pushing" | null;
+
+interface ThreadState {
+  id: string;
+  branchName: string;
+  createdAt: number;
+  status: ThreadStatus;
+  history: ThreadMessage[];
+  lastCommitHash: string | null;
+  errorMessage?: string;
+  operation?: OperationType;  // Current async operation in progress
+}
+
+interface ActionResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
 ```
 
 ### Implementation Functions
