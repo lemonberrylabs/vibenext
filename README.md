@@ -90,45 +90,21 @@ Update `app/layout.tsx`:
 
 ```tsx
 import { VibeOverlay } from "@vibecoder/client";
-import {
-  authenticate,
-  checkAuth,
-  createThread,
-  getThreadState,
-  sendPrompt,
-  mergeThread,
-  pushThread,
-  checkHealth,
-  listThreads,
-  switchThread,
-} from "./actions/vibe";
+import * as vibeActions from "./actions/vibe";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html>
       <body>
         {children}
-        <VibeOverlay
-          actions={{
-            authenticate,
-            checkAuth,
-            createThread,
-            getThreadState,
-            sendPrompt,
-            mergeThread,
-            pushThread,
-            checkHealth,
-            listThreads,
-            switchThread,
-          }}
-        />
+        <VibeOverlay actions={vibeActions} />
       </body>
     </html>
   );
 }
 ```
 
-> **Note:** You don't need to wrap VibeOverlay in a `NODE_ENV` check - it automatically disables itself in production for security.
+> **Note:** You don't need to wrap VibeOverlay in a `NODE_ENV` check - it automatically disables itself in production.
 
 ### 5. Run with the CLI
 
@@ -140,64 +116,17 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
 
 ---
 
-## How It Works
+## Features
 
-1. **Control Plane** (`@vibecoder/control-plane`) - A standalone Node.js server that:
-   - Runs the Claude AI agent with filesystem and bash access
-   - Manages Git branches for each coding session
-   - Auto-commits changes made by the AI
-   - Survives Next.js HMR restarts
-
-2. **Client** (`@vibecoder/client`) - A React overlay that:
-   - Provides a chat interface to interact with Claude
-   - Shows which Git branch you're working on
-   - Allows switching between multiple sessions
-   - Handles authentication with a password gate
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Your Next.js App (Port 3000)                           │
-│  ┌───────────────────────────────────────────────────┐  │
-│  │  VibeOverlay Component                            │  │
-│  │  - Chat UI                                        │  │
-│  │  - Branch switching                               │  │
-│  │  - Auth gate                                      │  │
-│  └───────────────────────────────────────────────────┘  │
-│                          │                              │
-│                   Server Actions                        │
-│                          │                              │
-└──────────────────────────┼──────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│  Control Plane (Port 3001)  [STATEFUL]                  │
-│  - Claude Agent SDK                                     │
-│  - Git operations (async)                               │
-│  - File I/O                                             │
-│  - Thread state management                              │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Communication Model
-
-The Control Plane is **stateful** and survives HMR restarts. The communication model is designed around this:
-
-1. **Commands return immediately** - All mutating operations (create thread, send message, merge, switch, push) return as soon as the command is acknowledged. The actual work happens asynchronously in the background.
-
-2. **Client polls for state** - The client regularly polls `GET /threads/:id` to get the current thread state, including any operation in progress.
-
-3. **Client is stateless** - The Next.js app can restart at any time (HMR, crashes, manual refresh). All state is recovered by polling the Control Plane.
-
-This design ensures that:
-- Git operations that trigger HMR don't block the response
-- The UI stays responsive during long-running AI operations
-- State is never lost when the app restarts
+- **Isolated Git Branches** - Each session creates a new branch (`feat/vibe-{id}`)
+- **Auto-commit** - Changes are automatically committed after each AI response
+- **Branch Switching** - Switch between multiple unfinished sessions
+- **Push to Remote** - Push your branch to create PRs
+- **Merge to Main** - One-click merge when you're happy with changes
+- **HMR Resilient** - Control plane survives Next.js hot reloads
+- **Production Safe** - Automatically disabled in production environments
 
 ## Configuration
-
-### Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -208,146 +137,27 @@ This design ensures that:
 
 ## Security
 
-Vibe Coder is designed as a **development-only tool** with multiple layers of security:
+Vibe Coder is a **development-only tool** with automatic production protection:
 
-### Automatic Production Protection
+1. `VibeOverlay` returns `null` in production
+2. All API functions refuse to execute in production
+3. Control plane only binds to localhost (`127.0.0.1`)
+4. Password authentication via HTTP-only cookies
 
-1. **Component Level**: `VibeOverlay` automatically returns `null` in production - even if you forget to conditionally render it
-2. **API Level**: All implementation functions (`*Impl`) refuse to execute in production
-3. **Server Level**: Control plane only binds to `127.0.0.1` (localhost)
-4. **Auth Level**: Password protection via HTTP-only cookies
-
-### What happens in production?
-
-- The overlay **will not render** (returns null)
-- API calls **will fail** with security error
-- Control plane **won't be running** anyway
-- Zero security exposure to end users
-
-### Override (Not Recommended)
-
-If you absolutely must use in production (e.g., staging environment):
-
-```tsx
-<VibeOverlay
-  actions={actions}
-  dangerouslyAllowProduction={true}  // ⚠️ SECURITY RISK
-/>
-```
-
-And in your server actions:
-
-```typescript
-createThreadImpl({ dangerouslyAllowProduction: true })
-```
-
-## Features
-
-- **Isolated Git Branches**: Each coding session creates a new branch (`feat/vibe-{id}`)
-- **Auto-commit**: Changes are automatically committed after each AI response
-- **Branch Switching**: Switch between multiple unfinished sessions
-- **Push to Remote**: Push your branch to create PRs or share work-in-progress
-- **Merge to Main**: One-click merge when you're happy with changes
-- **HMR Resilient**: Control plane survives Next.js hot reloads
-- **Password Protected**: Simple password gate for development security
-- **Git Lock Handling**: Automatic retry with exponential backoff for Git operations
-- **Production Safe**: Automatically disabled in production environments
-
-## API Reference
-
-### VibeOverlay Props
-
-```typescript
-interface VibeOverlayProps {
-  /** Server actions that the overlay will use */
-  actions: VibeActions;
-  /** Override production safety check (NOT RECOMMENDED) */
-  dangerouslyAllowProduction?: boolean;
-}
-
-interface VibeActions {
-  authenticate: (password: string) => Promise<{ success: boolean; error?: string }>;
-  checkAuth: () => Promise<{ authenticated: boolean; configured: boolean }>;
-  createThread: () => Promise<ActionResult<CreateThreadResult>>;
-  getThreadState: (threadId: string) => Promise<ActionResult<ThreadState>>;
-  sendPrompt: (threadId: string, message: string) => Promise<ActionResult<ChatResult>>;
-  mergeThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
-  pushThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
-  checkHealth: () => Promise<ActionResult<{ status: string; workingDir: string }>>;
-  listThreads: () => Promise<ActionResult<ThreadState[]>>;
-  switchThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
-}
-```
-
-> **Note:** All mutating operations (`createThread`, `sendPrompt`, `mergeThread`, `pushThread`, `switchThread`) return immediately with acknowledgment. Poll `getThreadState` for completion by checking the `operation` field.
-
-### Key Types
-
-```typescript
-type ThreadStatus = "IDLE" | "RUNNING" | "ERROR";
-type OperationType = "creating" | "switching" | "merging" | "pushing" | null;
-
-interface ThreadState {
-  id: string;
-  branchName: string;
-  createdAt: number;
-  status: ThreadStatus;
-  history: ThreadMessage[];
-  lastCommitHash: string | null;
-  errorMessage?: string;
-  operation?: OperationType;  // Current async operation in progress
-}
-
-interface ActionResult<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-```
-
-### Implementation Functions
-
-The package exports implementation functions that your server actions should delegate to:
-
-```typescript
-import {
-  createThreadImpl,
-  getThreadStateImpl,
-  sendPromptImpl,
-  mergeThreadImpl,
-  pushThreadImpl,
-  checkHealthImpl,
-  listThreadsImpl,
-  switchThreadImpl,
-} from "@vibecoder/client/lib/controlPlane";
-```
-
-Each function accepts an optional config object:
-
-```typescript
-interface ControlPlaneConfig {
-  url?: string; // Override the control plane URL
-  dangerouslyAllowProduction?: boolean; // Allow running in production (NOT RECOMMENDED)
-}
-```
-
-**Async Operations**: The mutating functions (`createThreadImpl`, `sendPromptImpl`, `mergeThreadImpl`, `pushThreadImpl`, `switchThreadImpl`) return immediately after the command is acknowledged. The actual work happens asynchronously in the control plane. Use `getThreadStateImpl` to poll for completion by checking the `operation` field.
+**Override (not recommended):** For staging environments, pass `dangerouslyAllowProduction={true}` to `VibeOverlay` and `{ dangerouslyAllowProduction: true }` to implementation functions.
 
 ## Development
-
-### Building from source
 
 ```bash
 pnpm install
 pnpm build
-```
-
-### Running tests
-
-```bash
 pnpm typecheck
 ```
 
 ## License
 
 MIT
+
+---
+
+For technical architecture details, see [Design.md](./Design.md).
