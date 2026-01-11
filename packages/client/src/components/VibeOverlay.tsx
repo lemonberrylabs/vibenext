@@ -1,25 +1,23 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
-import { checkAuth } from "../actions/auth";
-import { 
-  createThread, 
-  getThreadState, 
-  sendPrompt,
-  mergeThread,
-  checkHealth,
-  listThreads,
-  switchThread,
-} from "../actions/controlPlane";
-import type { ThreadState, ThreadMessage, ContentBlock } from "../types";
+import type { ThreadState, ThreadMessage, ContentBlock, VibeActions } from "../types";
 import { LockScreen } from "./LockScreen";
+
+export interface VibeOverlayProps {
+  /**
+   * Server actions that the overlay will use to communicate with the control plane.
+   * These must be implemented in your app using "use server" directive.
+   */
+  actions: VibeActions;
+}
 
 const STORAGE_KEY = "vibe_active_thread_id";
 const POLL_INTERVAL_MS = 2000;
 
 type ConnectionStatus = "connected" | "disconnected" | "checking";
 
-export function VibeOverlay() {
+export function VibeOverlay({ actions }: VibeOverlayProps) {
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
@@ -44,30 +42,30 @@ export function VibeOverlay() {
 
   // Check authentication on mount
   useEffect(() => {
-    checkAuth().then(({ authenticated, configured }) => {
+    actions.checkAuth().then(({ authenticated, configured }) => {
       setIsAuthenticated(authenticated);
       setIsConfigured(configured);
     });
-  }, []);
+  }, [actions]);
 
   // Check control plane health
   const checkConnection = useCallback(async () => {
-    const result = await checkHealth();
+    const result = await actions.checkHealth();
     setConnectionStatus(result.success ? "connected" : "disconnected");
     return result.success;
-  }, []);
+  }, [actions]);
 
   // Load all threads
   const loadAllThreads = useCallback(async () => {
-    const result = await listThreads();
+    const result = await actions.listThreads();
     if (result.success && result.data) {
       setAllThreads(result.data);
     }
-  }, []);
+  }, [actions]);
 
   // Poll for thread updates
   const pollThread = useCallback(async (threadId: string) => {
-    const result = await getThreadState(threadId);
+    const result = await actions.getThreadState(threadId);
     if (result.success && result.data) {
       setThread(result.data);
       // Stop polling if not running
@@ -76,7 +74,7 @@ export function VibeOverlay() {
         pollIntervalRef.current = null;
       }
     }
-  }, []);
+  }, [actions]);
 
   // Start polling when thread is running
   useEffect(() => {
@@ -107,7 +105,7 @@ export function VibeOverlay() {
 
       const storedThreadId = localStorage.getItem(STORAGE_KEY);
       if (storedThreadId) {
-        const result = await getThreadState(storedThreadId);
+        const result = await actions.getThreadState(storedThreadId);
         if (result.success && result.data) {
           setThread(result.data);
         } else {
@@ -127,7 +125,7 @@ export function VibeOverlay() {
     }, 10000);
 
     return () => clearInterval(healthCheckInterval);
-  }, [isAuthenticated, checkConnection, connectionStatus, loadAllThreads]);
+  }, [isAuthenticated, checkConnection, connectionStatus, loadAllThreads, actions]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -138,7 +136,7 @@ export function VibeOverlay() {
   const handleCreateThread = async () => {
     setIsCreating(true);
     setMergeError(null);
-    const result = await createThread();
+    const result = await actions.createThread();
     setIsCreating(false);
 
     if (result.success && result.data) {
@@ -171,7 +169,7 @@ export function VibeOverlay() {
     setIsMerging(true);
     setMergeError(null);
     
-    const result = await mergeThread(thread.id);
+    const result = await actions.mergeThread(thread.id);
     setIsMerging(false);
 
     if (result.success && result.data?.success) {
@@ -195,7 +193,7 @@ export function VibeOverlay() {
     setIsSwitching(true);
     setMergeError(null);
     
-    const result = await switchThread(threadId);
+    const result = await actions.switchThread(threadId);
     setIsSwitching(false);
     setShowThreadList(false);
 
@@ -222,7 +220,7 @@ export function VibeOverlay() {
       status: "RUNNING",
     } : null);
 
-    const result = await sendPrompt(thread.id, message);
+    const result = await actions.sendPrompt(thread.id, message);
     
     if (!result.success) {
       // Revert on error
