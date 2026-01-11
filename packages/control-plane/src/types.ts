@@ -1,4 +1,4 @@
-import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.js";
+import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
 export type ThreadStatus = "IDLE" | "RUNNING" | "ERROR";
 

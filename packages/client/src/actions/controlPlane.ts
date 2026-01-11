@@ -7,7 +7,7 @@ import type {
   ChatResult, 
   MergeResult,
   ActionResult 
-} from "../types.js";
+} from "../types";
 
 const CONTROL_PLANE_URL = process.env.VIBE_CONTROL_PLANE_URL || "http://127.0.0.1:3001";
 const AUTH_COOKIE_NAME = "vibe-auth";

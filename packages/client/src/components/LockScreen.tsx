@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { authenticate } from "../actions/auth.js";
+import { authenticate } from "../actions/auth";
 
 interface LockScreenProps {
   onAuthenticated: () => void;

@@ -1,6 +1,6 @@
 // Components
-export { VibeOverlay } from "./components/VibeOverlay.js";
-export { LockScreen } from "./components/LockScreen.js";
+export { VibeOverlay } from "./components/VibeOverlay";
+export { LockScreen } from "./components/LockScreen";
 
 // Types
 export type {
@@ -12,7 +12,7 @@ export type {
   ChatResult,
   MergeResult,
   ActionResult,
-} from "./types.js";
+} from "./types";
 
 // Server Actions - re-export for convenience
 export {
@@ -23,10 +23,10 @@ export {
   checkHealth,
   listThreads,
   switchThread,
-} from "./actions/proxy.js";
+} from "./actions/controlPlane";
 
 export {
   authenticate,
   checkAuth,
   logout,
-} from "./actions/auth.js";
+} from "./actions/auth";

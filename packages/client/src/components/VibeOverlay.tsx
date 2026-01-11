@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
-import { checkAuth } from "../actions/auth.js";
+import { checkAuth } from "../actions/auth";
 import { 
   createThread, 
   getThreadState, 
@@ -10,9 +10,9 @@ import {
   checkHealth,
   listThreads,
   switchThread,
-} from "../actions/proxy.js";
-import type { ThreadState, ThreadMessage, ContentBlock } from "../types.js";
-import { LockScreen } from "./LockScreen.js";
+} from "../actions/controlPlane";
+import type { ThreadState, ThreadMessage, ContentBlock } from "../types";
+import { LockScreen } from "./LockScreen";
 
 const STORAGE_KEY = "vibe_active_thread_id";
 const POLL_INTERVAL_MS = 2000;

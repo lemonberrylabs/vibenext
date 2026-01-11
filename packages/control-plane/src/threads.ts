@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
-import type { Thread, ThreadStatus } from "./types.js";
-import { getGitManager } from "./git.js";
-import { getAgentManager } from "./agent.js";
+import type { Thread, ThreadStatus } from "./types";
+import { getGitManager } from "./git";
+import { getAgentManager } from "./agent";
 
 /**
  * In-memory thread registry

@@ -7,7 +7,7 @@ import {
   sendMessage,
   mergeThread,
   switchToThread,
-} from "./threads.js";
+} from "./threads";
 import type {
   ChatRequest,
   CreateThreadResponse,
@@ -15,7 +15,7 @@ import type {
   ThreadStateResponse,
   MergeResponse,
   ErrorResponse,
-} from "./types.js";
+} from "./types";
 
 const PORT = parseInt(process.env.VIBE_PORT || "3001", 10);
 const HOST = "127.0.0.1"; // Security: Only bind to localhost

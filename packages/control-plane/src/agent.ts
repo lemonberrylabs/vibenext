@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ContentBlock } from "@anthropic-ai/sdk/resources/messages.js";
-import type { Thread } from "./types.js";
-import { getGitManager } from "./git.js";
+import type { ContentBlock } from "@anthropic-ai/sdk/resources/messages";
+import type { Thread } from "./types";
+import { getGitManager } from "./git";
 
 const SYSTEM_PROMPT = `You are a coding assistant modifying the local codebase.
 
