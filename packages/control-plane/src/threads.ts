@@ -74,6 +74,14 @@ export async function sendMessage(
     throw new Error(`Thread ${threadId} is already processing a message`);
   }
 
+  // Ensure we're on the correct branch for this thread
+  const gitManager = getGitManager(workingDir);
+  const currentBranch = await gitManager.getCurrentBranch();
+  if (currentBranch !== thread.branchName) {
+    console.log(`[Threads] Switching to branch '${thread.branchName}' for thread ${threadId}`);
+    await gitManager.checkout(thread.branchName);
+  }
+
   // Update status to RUNNING
   thread.status = "RUNNING";
   thread.errorMessage = undefined;

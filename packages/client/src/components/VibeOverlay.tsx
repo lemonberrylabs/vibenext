@@ -6,6 +6,7 @@ import {
   createThread, 
   getThreadState, 
   sendPrompt,
+  mergeThread,
   checkHealth 
 } from "../actions/proxy.js";
 import type { ThreadState, ThreadMessage, ContentBlock } from "../types.js";
@@ -29,6 +30,8 @@ export function VibeOverlay() {
   const [thread, setThread] = useState<ThreadState | null>(null);
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -78,8 +81,10 @@ export function VibeOverlay() {
     };
   }, [thread?.status, thread?.id, pollThread]);
 
-  // Load existing thread on mount
+  // Load existing thread on mount and setup periodic health check
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const loadThread = async () => {
       const isConnected = await checkConnection();
       if (!isConnected) return;
@@ -96,10 +101,17 @@ export function VibeOverlay() {
       }
     };
 
-    if (isAuthenticated) {
-      loadThread();
-    }
-  }, [isAuthenticated, checkConnection]);
+    loadThread();
+
+    // Periodic health check every 10 seconds when disconnected
+    const healthCheckInterval = setInterval(async () => {
+      if (connectionStatus === "disconnected") {
+        await checkConnection();
+      }
+    }, 10000);
+
+    return () => clearInterval(healthCheckInterval);
+  }, [isAuthenticated, checkConnection, connectionStatus]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -109,6 +121,7 @@ export function VibeOverlay() {
   // Create a new thread
   const handleCreateThread = async () => {
     setIsCreating(true);
+    setMergeError(null);
     const result = await createThread();
     setIsCreating(false);
 
@@ -123,6 +136,32 @@ export function VibeOverlay() {
       };
       setThread(newThread);
       localStorage.setItem(STORAGE_KEY, newThread.id);
+    }
+  };
+
+  // Start a new session (clear current thread)
+  const handleNewSession = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setThread(null);
+    setMergeError(null);
+  };
+
+  // Merge thread to main
+  const handleMerge = async () => {
+    if (!thread || thread.status === "RUNNING") return;
+
+    setIsMerging(true);
+    setMergeError(null);
+    
+    const result = await mergeThread(thread.id);
+    setIsMerging(false);
+
+    if (result.success && result.data?.success) {
+      // Clear thread after successful merge
+      localStorage.removeItem(STORAGE_KEY);
+      setThread(null);
+    } else {
+      setMergeError(result.error || result.data?.error || "Merge failed");
     }
   };
 
@@ -155,19 +194,55 @@ export function VibeOverlay() {
   };
 
   // Render message content
-  const renderMessageContent = (content: string | ContentBlock[]): string => {
+  const renderMessageContent = (content: string | ContentBlock[]): React.ReactNode => {
     if (typeof content === "string") return content;
     
-    return content
-      .filter((block): block is ContentBlock & { type: "text"; text: string } => 
-        block.type === "text" && typeof block.text === "string"
-      )
-      .map(block => block.text)
-      .join("\n");
+    return content.map((block, i) => {
+      if (block.type === "text" && block.text) {
+        return <span key={i}>{block.text}</span>;
+      }
+      if (block.type === "tool_use" && block.name) {
+        return (
+          <div key={i} style={styles.toolUse}>
+            <span style={styles.toolIcon}>🔧</span>
+            <code>{block.name}</code>
+          </div>
+        );
+      }
+      if (block.type === "tool_result" && block.content) {
+        const preview = typeof block.content === "string" 
+          ? block.content.slice(0, 100) + (block.content.length > 100 ? "..." : "")
+          : "[result]";
+        return (
+          <div key={i} style={styles.toolResult}>
+            <span style={styles.toolIcon}>📋</span>
+            <code>{preview}</code>
+          </div>
+        );
+      }
+      return null;
+    });
   };
 
-  // Don't render if not configured
+  // Don't render in production or if not configured
   if (!isConfigured) {
+    // Show a minimal indicator in development
+    if (process.env.NODE_ENV === "development") {
+      return (
+        <div style={styles.container}>
+          <div 
+            style={{
+              ...styles.fab,
+              backgroundColor: "#6b7280",
+              cursor: "default",
+            }}
+            title="VIBE_PASSWORD not configured"
+          >
+            🔒
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
@@ -220,7 +295,43 @@ export function VibeOverlay() {
         {thread.status === "ERROR" && (
           <span style={styles.errorBadge}>Error</span>
         )}
+        {thread.status === "IDLE" && (
+          <>
+            <button
+              onClick={handleMerge}
+              disabled={isMerging}
+              style={styles.mergeButton}
+              title="Merge changes to main"
+            >
+              {isMerging ? "Merging..." : "✓ Merge"}
+            </button>
+            <button
+              onClick={handleNewSession}
+              style={styles.newSessionButton}
+              title="Start a new session"
+            >
+              +
+            </button>
+          </>
+        )}
       </div>
+      
+      {/* Last commit indicator */}
+      {thread.lastCommitHash && (
+        <div style={styles.commitBar}>
+          <span style={styles.commitIcon}>📝</span>
+          <code style={styles.commitHash}>
+            Last commit: {thread.lastCommitHash.slice(0, 7)}
+          </code>
+        </div>
+      )}
+      
+      {/* Merge error */}
+      {mergeError && (
+        <div style={styles.mergeErrorBar}>
+          ⚠️ {mergeError}
+        </div>
+      )}
 
       {/* Messages */}
       <div style={styles.messages}>
@@ -485,6 +596,53 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: "#ef4444",
     color: "#fff",
     borderRadius: "4px",
+  },
+  mergeButton: {
+    padding: "2px 8px",
+    fontSize: "11px",
+    backgroundColor: "#10b981",
+    color: "#fff",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontWeight: 500,
+  },
+  newSessionButton: {
+    width: "20px",
+    height: "20px",
+    padding: 0,
+    fontSize: "14px",
+    backgroundColor: "#4b5563",
+    color: "#fff",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  commitBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "4px 12px",
+    backgroundColor: "#1a1a1a",
+    fontSize: "11px",
+    borderBottom: "1px solid #333",
+  },
+  commitIcon: {
+    fontSize: "12px",
+  },
+  commitHash: {
+    color: "#888",
+    fontFamily: "monospace",
+  },
+  mergeErrorBar: {
+    padding: "8px 12px",
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderBottom: "1px solid rgba(239, 68, 68, 0.3)",
+    color: "#f87171",
+    fontSize: "12px",
   },
   messages: {
     flex: 1,
