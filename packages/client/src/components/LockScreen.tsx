@@ -25,7 +25,8 @@ export function LockScreen({ onAuthenticated, authenticate }: LockScreenProps) {
         setError(result.error || "Authentication failed");
         setPassword("");
       }
-    } catch {
+    } catch (err) {
+      console.error("[VibeCoder] Authentication error:", err);
       setError("Failed to authenticate");
     } finally {
       setLoading(false);

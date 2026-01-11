@@ -65,10 +65,12 @@ export async function checkAuth() {
 }
 
 // Wrap each action with auth check
-async function withAuth<T>(fn: () => Promise<T>): Promise<T> {
+import type { ActionResult } from "@vibecoder/client";
+
+async function withAuth<T>(fn: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
   const { authenticated } = await checkAuth();
   if (!authenticated) {
-    return { success: false, error: "Not authenticated" } as T;
+    return { success: false, error: "Not authenticated" };
   }
   return fn();
 }
@@ -134,6 +136,7 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
 | `ANTHROPIC_API_KEY` | Yes | - | Your Anthropic API key |
 | `VIBE_PORT` | No | `3001` | Control plane port |
 | `VIBE_CONTROL_PLANE_URL` | No | `http://127.0.0.1:3001` | Control plane URL |
+| `VIBE_ANTHROPIC_MODEL` | No | `claude-sonnet-4-20250514` | Anthropic model to use |
 
 ## Security
 

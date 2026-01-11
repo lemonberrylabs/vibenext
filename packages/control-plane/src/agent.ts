@@ -47,7 +47,7 @@ export class AgentManager {
       while (continueLoop) {
         // Call Claude with current history
         const response = await this.client.messages.create({
-          model: "claude-sonnet-4-20250514",
+          model: process.env.VIBE_ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
           max_tokens: 8096,
           system: SYSTEM_PROMPT,
           tools: this.getToolDefinitions(),
@@ -217,9 +217,60 @@ export class AgentManager {
   }
 
   /**
-   * Execute a bash command
+   * Dangerous command patterns that should be blocked.
+   * These patterns are designed to prevent catastrophic mistakes.
+   */
+  private static readonly BLOCKED_COMMAND_PATTERNS: RegExp[] = [
+    // Recursive force delete on root, home, or wildcard
+    /rm\s+(-[rf]+\s+)*\s*\/\s*$/i,
+    /rm\s+(-[rf]+\s+)*\s*\/\s*[^/]/i,
+    /rm\s+(-[rf]+\s+)*\s*~\s*$/i,
+    /rm\s+(-[rf]+\s+)*\s*\$HOME\s*$/i,
+    /rm\s+(-[rf]+\s+)*\s*\*\s*$/i,
+    // Prevent operations on SSH keys and credentials
+    /\/\.ssh\//i,
+    /\/\.gnupg\//i,
+    /\/\.aws\//i,
+    /\/\.kube\//i,
+    // Prevent modifying shell configs outside project
+    />\s*~\/\.[a-z]/i,
+    />>\s*~\/\.[a-z]/i,
+    // Prevent chmod 777 on sensitive paths
+    /chmod\s+777\s+\//i,
+    // Prevent curl/wget piped to shell on unknown URLs (basic check)
+    /curl.*\|\s*(ba)?sh/i,
+    /wget.*\|\s*(ba)?sh/i,
+    // Prevent dd to block devices
+    /dd\s+.*of=\/dev\//i,
+    // Prevent mkfs on devices
+    /mkfs\s+/i,
+    // Prevent fork bombs
+    /:\(\)\s*\{\s*:\|:&\s*\}\s*;/,
+  ];
+
+  /**
+   * Check if a command is blocked for safety
+   */
+  private isCommandBlocked(command: string): string | null {
+    for (const pattern of AgentManager.BLOCKED_COMMAND_PATTERNS) {
+      if (pattern.test(command)) {
+        return `Command blocked for safety: matches pattern ${pattern.toString()}`;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Execute a bash command with safety checks
    */
   private async executeBash(command: string): Promise<string> {
+    // Check for blocked commands
+    const blockReason = this.isCommandBlocked(command);
+    if (blockReason) {
+      console.warn(`[AgentManager] Blocked dangerous command: ${command}`);
+      return `Error: ${blockReason}. This command has been blocked for safety. Please use a safer alternative.`;
+    }
+
     const { exec } = await import("node:child_process");
     const { promisify } = await import("node:util");
     const execAsync = promisify(exec);
@@ -245,25 +296,44 @@ export class AgentManager {
   }
 
   /**
-   * Read a file
+   * Validate that a path is within the working directory (path traversal protection)
+   */
+  private async validatePath(filePath: string): Promise<string> {
+    const { resolve, relative } = await import("node:path");
+    
+    // Resolve to absolute path
+    const fullPath = resolve(this.workingDir, filePath);
+    
+    // Check if the resolved path is within the working directory
+    const relativePath = relative(this.workingDir, fullPath);
+    
+    // If the relative path starts with ".." or is absolute, it's outside the working dir
+    if (relativePath.startsWith("..") || resolve(relativePath) === relativePath) {
+      throw new Error(`Path traversal detected: '${filePath}' resolves outside the project directory. Access denied.`);
+    }
+    
+    return fullPath;
+  }
+
+  /**
+   * Read a file (with path traversal protection)
    */
   private async readFile(filePath: string): Promise<string> {
     const { readFile } = await import("node:fs/promises");
-    const { join, isAbsolute } = await import("node:path");
     
-    const fullPath = isAbsolute(filePath) ? filePath : join(this.workingDir, filePath);
+    const fullPath = await this.validatePath(filePath);
     const content = await readFile(fullPath, "utf-8");
     return content;
   }
 
   /**
-   * Write a file
+   * Write a file (with path traversal protection)
    */
   private async writeFile(filePath: string, content: string): Promise<string> {
     const { writeFile, mkdir } = await import("node:fs/promises");
-    const { join, dirname, isAbsolute } = await import("node:path");
+    const { dirname } = await import("node:path");
     
-    const fullPath = isAbsolute(filePath) ? filePath : join(this.workingDir, filePath);
+    const fullPath = await this.validatePath(filePath);
     
     // Ensure directory exists
     await mkdir(dirname(fullPath), { recursive: true });
@@ -273,13 +343,13 @@ export class AgentManager {
   }
 
   /**
-   * List files in a directory
+   * List files in a directory (with path traversal protection)
    */
   private async listFiles(dirPath: string): Promise<string> {
     const { readdir, stat } = await import("node:fs/promises");
-    const { join, isAbsolute } = await import("node:path");
+    const { join } = await import("node:path");
     
-    const fullPath = isAbsolute(dirPath) ? dirPath : join(this.workingDir, dirPath);
+    const fullPath = await this.validatePath(dirPath || ".");
     const entries = await readdir(fullPath);
     
     const results: string[] = [];

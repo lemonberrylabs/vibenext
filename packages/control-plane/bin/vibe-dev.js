@@ -38,6 +38,8 @@ controlPlane.on("exit", (code) => {
 setTimeout(() => {
   console.log("🚀 Starting Next.js (port 3000)...\n");
   
+  // Note: shell: true is required for cross-platform compatibility (Windows uses npx.cmd)
+  // This is safe here because the command is static and not derived from user input
   const nextDev = spawn("npx", ["next", "dev"], {
     stdio: "inherit",
     cwd: process.cwd(),
