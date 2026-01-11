@@ -49,6 +49,7 @@ export async function createThread(workingDir: string): Promise<Thread> {
     status: "IDLE",
     history: [],
     lastCommitHash: null,
+    operation: null,
   };
 
   threads.set(threadId, thread);
@@ -126,15 +127,13 @@ async function processMessageAsync(
 /**
  * Merge a thread's branch into main and push
  * 
- * NOTE: This is intentionally synchronous (awaited) because:
- * 1. User initiated this action and expects to know when it completes
- * 2. The UI should show success/failure before allowing further actions
- * 3. File changes here are expected - we're completing the workflow
+ * Returns IMMEDIATELY - merge happens in background.
+ * Client should poll thread state to see when operation completes.
  */
-export async function mergeThread(
+export function mergeThread(
   threadId: string,
   workingDir: string
-): Promise<{ success: boolean; error?: string }> {
+): { success: boolean; error?: string } {
   const thread = threads.get(threadId);
   if (!thread) {
     return { success: false, error: `Thread ${threadId} not found` };
@@ -144,6 +143,25 @@ export async function mergeThread(
     return { success: false, error: "Cannot merge while thread is running" };
   }
 
+  if (thread.operation) {
+    return { success: false, error: `Operation '${thread.operation}' already in progress` };
+  }
+
+  // Mark operation as in progress
+  thread.operation = "merging";
+  threads.set(threadId, { ...thread });
+
+  // Do the actual merge in background
+  mergeThreadAsync(threadId, thread, workingDir);
+
+  return { success: true };
+}
+
+async function mergeThreadAsync(
+  threadId: string,
+  thread: Thread,
+  workingDir: string
+): Promise<void> {
   const gitManager = getGitManager(workingDir);
 
   try {
@@ -169,11 +187,17 @@ export async function mergeThread(
     await gitManager.push("origin", "main");
 
     console.log(`[Threads] Merge complete for thread ${threadId}`);
-    return { success: true };
+    
+    // Clear operation and remove thread (it's been merged)
+    thread.operation = null;
+    threads.delete(threadId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Threads] Merge failed for thread ${threadId}:`, message);
-    return { success: false, error: message };
+    thread.operation = null;
+    thread.status = "ERROR";
+    thread.errorMessage = message;
+    threads.set(threadId, { ...thread });
   }
 }
 
@@ -186,11 +210,14 @@ export function deleteThread(threadId: string): boolean {
 
 /**
  * Push a thread's branch to remote
+ * 
+ * Returns IMMEDIATELY - push happens in background.
+ * Client should poll thread state to see when operation completes.
  */
-export async function pushThread(
+export function pushThread(
   threadId: string,
   workingDir: string
-): Promise<{ success: boolean; error?: string }> {
+): { success: boolean; error?: string } {
   const thread = threads.get(threadId);
   if (!thread) {
     return { success: false, error: `Thread ${threadId} not found` };
@@ -200,6 +227,25 @@ export async function pushThread(
     return { success: false, error: "Cannot push while thread is running" };
   }
 
+  if (thread.operation) {
+    return { success: false, error: `Operation '${thread.operation}' already in progress` };
+  }
+
+  // Mark operation as in progress
+  thread.operation = "pushing";
+  threads.set(threadId, { ...thread });
+
+  // Do the actual push in background
+  pushThreadAsync(threadId, thread, workingDir);
+
+  return { success: true };
+}
+
+async function pushThreadAsync(
+  threadId: string,
+  thread: Thread,
+  workingDir: string
+): Promise<void> {
   const gitManager = getGitManager(workingDir);
 
   try {
@@ -221,43 +267,80 @@ export async function pushThread(
     await gitManager.push("origin", thread.branchName);
 
     console.log(`[Threads] Push complete for thread ${threadId}`);
-    return { success: true };
+    thread.operation = null;
+    threads.set(threadId, { ...thread });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Threads] Push failed for thread ${threadId}:`, message);
-    return { success: false, error: message };
+    thread.operation = null;
+    thread.status = "ERROR";
+    thread.errorMessage = message;
+    threads.set(threadId, { ...thread });
   }
 }
 
 /**
  * Switch to a thread (checkout its branch)
+ * 
+ * Returns IMMEDIATELY - switch happens in background.
+ * Client should poll thread state to see when operation completes.
  */
-export async function switchToThread(
+export function switchToThread(
   threadId: string,
   workingDir: string
-): Promise<Thread> {
+): { success: boolean; error?: string } {
   const thread = threads.get(threadId);
   if (!thread) {
-    throw new Error(`Thread ${threadId} not found`);
+    return { success: false, error: `Thread ${threadId} not found` };
   }
 
   if (thread.status === "RUNNING") {
-    throw new Error("Cannot switch to a thread that is currently running");
+    return { success: false, error: "Cannot switch to a thread that is currently running" };
   }
 
+  if (thread.operation) {
+    return { success: false, error: `Operation '${thread.operation}' already in progress` };
+  }
+
+  // Mark operation as in progress
+  thread.operation = "switching";
+  threads.set(threadId, { ...thread });
+
+  // Do the actual switch in background
+  switchToThreadAsync(threadId, thread, workingDir);
+
+  return { success: true };
+}
+
+async function switchToThreadAsync(
+  threadId: string,
+  thread: Thread,
+  workingDir: string
+): Promise<void> {
   const gitManager = getGitManager(workingDir);
 
-  // Check for uncommitted changes and handle them
-  const isDirty = await gitManager.isDirty();
-  if (isDirty) {
-    const currentBranch = await gitManager.getCurrentBranch();
-    console.log(`[Threads] Auto-committing changes on '${currentBranch}' before switching...`);
-    await gitManager.autoCommit(`WIP: Auto-save before switching to thread ${threadId.slice(0, 8)}`);
+  try {
+    // Check for uncommitted changes and handle them
+    const isDirty = await gitManager.isDirty();
+    if (isDirty) {
+      const currentBranch = await gitManager.getCurrentBranch();
+      console.log(`[Threads] Auto-committing changes on '${currentBranch}' before switching...`);
+      await gitManager.autoCommit(`WIP: Auto-save before switching to thread ${threadId.slice(0, 8)}`);
+    }
+
+    // Switch to the thread's branch
+    console.log(`[Threads] Switching to branch '${thread.branchName}'...`);
+    await gitManager.checkout(thread.branchName);
+
+    console.log(`[Threads] Switch complete for thread ${threadId}`);
+    thread.operation = null;
+    threads.set(threadId, { ...thread });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Threads] Switch failed for thread ${threadId}:`, message);
+    thread.operation = null;
+    thread.status = "ERROR";
+    thread.errorMessage = message;
+    threads.set(threadId, { ...thread });
   }
-
-  // Switch to the thread's branch
-  console.log(`[Threads] Switching to branch '${thread.branchName}'...`);
-  await gitManager.checkout(thread.branchName);
-
-  return thread;
 }

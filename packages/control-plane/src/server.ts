@@ -67,6 +67,7 @@ async function main() {
       history: t.history,
       lastCommitHash: t.lastCommitHash,
       errorMessage: t.errorMessage,
+      operation: t.operation,
     }));
   });
 
@@ -106,6 +107,7 @@ async function main() {
         history: thread.history,
         lastCommitHash: thread.lastCommitHash,
         errorMessage: thread.errorMessage,
+        operation: thread.operation,
       };
     }
   );
@@ -136,12 +138,12 @@ async function main() {
     }
   );
 
-  // Merge thread to main
+  // Merge thread to main (async - returns immediately)
   fastify.post<{ Params: { id: string } }>(
     "/threads/:id/merge",
-    async (request, reply): Promise<MergeResponse> => {
+    (request, reply): MergeResponse => {
       const { id } = request.params;
-      const result = await mergeThread(id, WORKING_DIR);
+      const result = mergeThread(id, WORKING_DIR);
 
       if (!result.success) {
         reply.code(400);
@@ -151,37 +153,27 @@ async function main() {
     }
   );
 
-  // Switch to a thread (checkout its branch)
+  // Switch to a thread (async - returns immediately)
   fastify.post<{ Params: { id: string } }>(
     "/threads/:id/switch",
-    async (request, reply): Promise<ThreadStateResponse | ErrorResponse> => {
+    (request, reply): MergeResponse => {
       const { id } = request.params;
-      
-      try {
-        const thread = await switchToThread(id, WORKING_DIR);
-        return {
-          id: thread.id,
-          branchName: thread.branchName,
-          createdAt: thread.createdAt,
-          status: thread.status,
-          history: thread.history,
-          lastCommitHash: thread.lastCommitHash,
-          errorMessage: thread.errorMessage,
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
+      const result = switchToThread(id, WORKING_DIR);
+
+      if (!result.success) {
         reply.code(400);
-        return { error: message };
       }
+
+      return result;
     }
   );
 
-  // Push thread branch to remote
+  // Push thread branch to remote (async - returns immediately)
   fastify.post<{ Params: { id: string } }>(
     "/threads/:id/push",
-    async (request, reply): Promise<MergeResponse> => {
+    (request, reply): MergeResponse => {
       const { id } = request.params;
-      const result = await pushThread(id, WORKING_DIR);
+      const result = pushThread(id, WORKING_DIR);
 
       if (!result.success) {
         reply.code(400);

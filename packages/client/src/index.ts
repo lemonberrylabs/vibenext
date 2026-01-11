@@ -7,6 +7,7 @@ export type { LockScreenProps } from "./components/LockScreen";
 // Types
 export type {
   ThreadStatus,
+  OperationType,
   ThreadMessage,
   ContentBlock,
   ThreadState,

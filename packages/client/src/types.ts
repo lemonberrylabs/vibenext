@@ -1,5 +1,8 @@
 export type ThreadStatus = "IDLE" | "RUNNING" | "ERROR";
 
+/** Async operations that can be in progress */
+export type OperationType = "switching" | "merging" | "pushing" | null;
+
 export interface ThreadMessage {
   role: "user" | "assistant";
   content: string | ContentBlock[];
@@ -21,6 +24,8 @@ export interface ThreadState {
   history: ThreadMessage[];
   lastCommitHash: string | null;
   errorMessage?: string;
+  /** Current async operation in progress */
+  operation?: OperationType;
 }
 
 export interface CreateThreadResult {
@@ -66,6 +71,6 @@ export interface VibeActions {
   checkHealth: () => Promise<ActionResult<{ status: string; workingDir: string }>>;
   /** List all threads */
   listThreads: () => Promise<ActionResult<ThreadState[]>>;
-  /** Switch to a different thread */
-  switchThread: (threadId: string) => Promise<ActionResult<ThreadState>>;
+  /** Switch to a different thread (async - poll for completion) */
+  switchThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
 }

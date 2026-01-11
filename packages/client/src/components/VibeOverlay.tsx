@@ -48,9 +48,6 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
   const [showThreadList, setShowThreadList] = useState(false);
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [isMerging, setIsMerging] = useState(false);
-  const [isPushing, setIsPushing] = useState(false);
-  const [isSwitching, setIsSwitching] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
 
   // Refs
@@ -85,20 +82,32 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     const result = await actions.getThreadState(threadId);
     if (result.success && result.data) {
       setThread(result.data);
-      // Stop polling if not running
-      if (result.data.status !== "RUNNING" && pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
+      // Refresh thread list if operation just completed
+      if (!result.data.operation) {
+        loadAllThreads();
       }
+    } else if (!result.success && result.error?.includes("not found")) {
+      // Thread was deleted (e.g., after successful merge)
+      localStorage.removeItem(STORAGE_KEY);
+      setThread(null);
+      loadAllThreads();
     }
-  }, [actions]);
+  }, [actions, loadAllThreads]);
 
-  // Start polling when thread is running
+  // Start polling when thread is running or has an operation in progress
   useEffect(() => {
-    if (thread?.status === "RUNNING" && !pollIntervalRef.current) {
+    const shouldPoll = thread?.status === "RUNNING" || thread?.operation;
+    
+    if (shouldPoll && !pollIntervalRef.current) {
       pollIntervalRef.current = setInterval(() => {
         pollThread(thread.id);
       }, POLL_INTERVAL_MS);
+    }
+
+    // Stop polling when not needed
+    if (!shouldPoll && pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
     }
 
     return () => {
@@ -107,7 +116,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
         pollIntervalRef.current = null;
       }
     };
-  }, [thread?.status, thread?.id, pollThread]);
+  }, [thread?.status, thread?.operation, thread?.id, pollThread]);
 
   // Load existing thread on mount and setup periodic health check
   useEffect(() => {
@@ -179,67 +188,64 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     setMergeError(null);
   };
 
-  // Push thread branch to remote
+  // Push thread branch to remote (async - returns immediately, poll for completion)
   const handlePush = async () => {
-    if (!thread || thread.status === "RUNNING") return;
+    if (!thread || thread.status === "RUNNING" || thread.operation) return;
 
-    setIsPushing(true);
     setMergeError(null);
     
     const result = await actions.pushThread(thread.id);
-    setIsPushing(false);
 
     if (result.success && result.data?.success) {
-      // Refresh thread state to get updated commit hash
-      const stateResult = await actions.getThreadState(thread.id);
-      if (stateResult.success && stateResult.data) {
-        setThread(stateResult.data);
-      }
+      // Update local state to show operation in progress
+      // Polling will update when complete
+      setThread(prev => prev ? { ...prev, operation: "pushing" } : null);
     } else {
       setMergeError(result.error || result.data?.error || "Push failed");
     }
   };
 
-  // Merge thread to main
+  // Merge thread to main (async - returns immediately, poll for completion)
   const handleMerge = async () => {
-    if (!thread || thread.status === "RUNNING") return;
+    if (!thread || thread.status === "RUNNING" || thread.operation) return;
 
-    setIsMerging(true);
     setMergeError(null);
     
     const result = await actions.mergeThread(thread.id);
-    setIsMerging(false);
 
     if (result.success && result.data?.success) {
-      // Clear thread after successful merge
-      localStorage.removeItem(STORAGE_KEY);
-      setThread(null);
-      // Refresh thread list
-      loadAllThreads();
+      // Update local state to show operation in progress
+      // Polling will update when complete (thread will be deleted on success)
+      setThread(prev => prev ? { ...prev, operation: "merging" } : null);
     } else {
       setMergeError(result.error || result.data?.error || "Merge failed");
     }
   };
 
-  // Switch to a different thread
-  const handleSwitchThread = async (threadId: string) => {
-    if (thread?.id === threadId) {
+  // Switch to a different thread (async - returns immediately, poll for completion)
+  const handleSwitchThread = async (targetThreadId: string) => {
+    if (thread?.id === targetThreadId) {
       setShowThreadList(false);
       return;
     }
 
-    setIsSwitching(true);
-    setMergeError(null);
-    
-    const result = await actions.switchThread(threadId);
-    setIsSwitching(false);
-    setShowThreadList(false);
+    if (thread?.operation) return; // Already has operation in progress
 
-    if (result.success && result.data) {
-      setThread(result.data);
-      localStorage.setItem(STORAGE_KEY, result.data.id);
+    setMergeError(null);
+    setShowThreadList(false);
+    
+    const result = await actions.switchThread(targetThreadId);
+
+    if (result.success && result.data?.success) {
+      // Store the target thread ID and start polling it
+      localStorage.setItem(STORAGE_KEY, targetThreadId);
+      // Load the target thread state (it will have operation: "switching")
+      const targetThread = await actions.getThreadState(targetThreadId);
+      if (targetThread.success && targetThread.data) {
+        setThread(targetThread.data);
+      }
     } else {
-      setMergeError(result.error || "Failed to switch thread");
+      setMergeError(result.error || result.data?.error || "Failed to switch thread");
     }
   };
 
@@ -386,26 +392,33 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
         {thread.status === "RUNNING" && (
           <span style={styles.statusBadge}>Working...</span>
         )}
-        {thread.status === "ERROR" && (
+        {thread.operation === "switching" && (
+          <span style={styles.statusBadge}>Switching...</span>
+        )}
+        {thread.operation === "merging" && (
+          <span style={styles.statusBadge}>Merging...</span>
+        )}
+        {thread.operation === "pushing" && (
+          <span style={styles.statusBadge}>Pushing...</span>
+        )}
+        {thread.status === "ERROR" && !thread.operation && (
           <span style={styles.errorBadge}>Error</span>
         )}
-        {thread.status === "IDLE" && (
+        {thread.status === "IDLE" && !thread.operation && (
           <>
             <button
               onClick={handlePush}
-              disabled={isPushing || isMerging}
               style={styles.pushButton}
               title="Push branch to remote"
             >
-              {isPushing ? "..." : "↑"}
+              ↑
             </button>
             <button
               onClick={handleMerge}
-              disabled={isMerging || isPushing}
               style={styles.mergeButton}
               title="Merge changes to main"
             >
-              {isMerging ? "..." : "✓ Merge"}
+              ✓ Merge
             </button>
             <button
               onClick={handleNewSession}
@@ -429,7 +442,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
             <button
               key={t.id}
               onClick={() => handleSwitchThread(t.id)}
-              disabled={isSwitching}
+              disabled={!!thread?.operation}
               style={{
                 ...styles.threadItem,
                 ...(t.id === thread.id ? styles.threadItemActive : {}),

@@ -148,9 +148,10 @@ export async function listThreadsImpl(config?: ControlPlaneConfig): Promise<Acti
 
 /**
  * Switch to a different thread (checks out the branch)
+ * Returns immediately - poll thread state to see when switch completes
  */
-export async function switchThreadImpl(threadId: string, config?: ControlPlaneConfig): Promise<ActionResult<ThreadState>> {
-  return controlPlaneFetch<ThreadState>(`/threads/${threadId}/switch`, {
+export async function switchThreadImpl(threadId: string, config?: ControlPlaneConfig): Promise<ActionResult<MergeResult>> {
+  return controlPlaneFetch<MergeResult>(`/threads/${threadId}/switch`, {
     method: "POST",
   }, config);
 }
