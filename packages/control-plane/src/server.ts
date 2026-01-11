@@ -7,6 +7,7 @@ import {
   sendMessage,
   mergeThread,
   switchToThread,
+  pushThread,
 } from "./threads";
 import type {
   ChatRequest,
@@ -169,6 +170,21 @@ async function main() {
         reply.code(400);
         return { error: message };
       }
+    }
+  );
+
+  // Push thread branch to remote
+  fastify.post<{ Params: { id: string } }>(
+    "/threads/:id/push",
+    async (request, reply): Promise<MergeResponse> => {
+      const { id } = request.params;
+      const result = await pushThread(id, WORKING_DIR);
+
+      if (!result.success) {
+        reply.code(400);
+      }
+
+      return result;
     }
   );
 

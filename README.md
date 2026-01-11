@@ -32,6 +32,7 @@ import {
   getThreadStateImpl,
   sendPromptImpl,
   mergeThreadImpl,
+  pushThreadImpl,
   checkHealthImpl,
   listThreadsImpl,
   switchThreadImpl,
@@ -77,6 +78,7 @@ export const createThread = () => withAuth(() => createThreadImpl());
 export const getThreadState = (id: string) => withAuth(() => getThreadStateImpl(id));
 export const sendPrompt = (id: string, msg: string) => withAuth(() => sendPromptImpl(id, msg));
 export const mergeThread = (id: string) => withAuth(() => mergeThreadImpl(id));
+export const pushThread = (id: string) => withAuth(() => pushThreadImpl(id));
 export const checkHealth = () => checkHealthImpl(); // No auth needed
 export const listThreads = () => withAuth(() => listThreadsImpl());
 export const switchThread = (id: string) => withAuth(() => switchThreadImpl(id));
@@ -95,6 +97,7 @@ import {
   getThreadState,
   sendPrompt,
   mergeThread,
+  pushThread,
   checkHealth,
   listThreads,
   switchThread,
@@ -113,6 +116,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             getThreadState,
             sendPrompt,
             mergeThread,
+            pushThread,
             checkHealth,
             listThreads,
             switchThread,
@@ -228,6 +232,7 @@ createThreadImpl({ dangerouslyAllowProduction: true })
 - **Isolated Git Branches**: Each coding session creates a new branch (`feat/vibe-{id}`)
 - **Auto-commit**: Changes are automatically committed after each AI response
 - **Branch Switching**: Switch between multiple unfinished sessions
+- **Push to Remote**: Push your branch to create PRs or share work-in-progress
 - **Merge to Main**: One-click merge when you're happy with changes
 - **HMR Resilient**: Control plane survives Next.js hot reloads
 - **Password Protected**: Simple password gate for development security
@@ -250,6 +255,7 @@ interface VibeActions {
   getThreadState: (threadId: string) => Promise<ActionResult<ThreadState>>;
   sendPrompt: (threadId: string, message: string) => Promise<ActionResult<ChatResult>>;
   mergeThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
+  pushThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
   checkHealth: () => Promise<ActionResult<{ status: string; workingDir: string }>>;
   listThreads: () => Promise<ActionResult<ThreadState[]>>;
   switchThread: (threadId: string) => Promise<ActionResult<ThreadState>>;
@@ -266,6 +272,7 @@ import {
   getThreadStateImpl,
   sendPromptImpl,
   mergeThreadImpl,
+  pushThreadImpl,
   checkHealthImpl,
   listThreadsImpl,
   switchThreadImpl,

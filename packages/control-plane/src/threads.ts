@@ -159,6 +159,51 @@ export function deleteThread(threadId: string): boolean {
 }
 
 /**
+ * Push a thread's branch to remote
+ */
+export async function pushThread(
+  threadId: string,
+  workingDir: string
+): Promise<{ success: boolean; error?: string }> {
+  const thread = threads.get(threadId);
+  if (!thread) {
+    return { success: false, error: `Thread ${threadId} not found` };
+  }
+
+  if (thread.status === "RUNNING") {
+    return { success: false, error: "Cannot push while thread is running" };
+  }
+
+  const gitManager = getGitManager(workingDir);
+
+  try {
+    // Ensure we're on the thread's branch
+    const currentBranch = await gitManager.getCurrentBranch();
+    if (currentBranch !== thread.branchName) {
+      await gitManager.checkout(thread.branchName);
+    }
+
+    // Commit any uncommitted changes first
+    const isDirty = await gitManager.isDirty();
+    if (isDirty) {
+      await gitManager.autoCommit("Auto: Save changes before push");
+      thread.lastCommitHash = await gitManager.getLatestCommitHash();
+    }
+
+    // Push to remote (will create the branch on remote if it doesn't exist)
+    console.log(`[Threads] Pushing branch '${thread.branchName}' to origin...`);
+    await gitManager.push("origin", thread.branchName);
+
+    console.log(`[Threads] Push complete for thread ${threadId}`);
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Threads] Push failed for thread ${threadId}:`, message);
+    return { success: false, error: message };
+  }
+}
+
+/**
  * Switch to a thread (checkout its branch)
  */
 export async function switchToThread(

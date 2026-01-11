@@ -154,3 +154,12 @@ export async function switchThreadImpl(threadId: string, config?: ControlPlaneCo
     method: "POST",
   }, config);
 }
+
+/**
+ * Push a thread's branch to remote
+ */
+export async function pushThreadImpl(threadId: string, config?: ControlPlaneConfig): Promise<ActionResult<MergeResult>> {
+  return controlPlaneFetch<MergeResult>(`/threads/${threadId}/push`, {
+    method: "POST",
+  }, config);
+}

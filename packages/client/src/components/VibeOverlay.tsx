@@ -49,6 +49,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
 
@@ -176,6 +177,27 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     localStorage.removeItem(STORAGE_KEY);
     setThread(null);
     setMergeError(null);
+  };
+
+  // Push thread branch to remote
+  const handlePush = async () => {
+    if (!thread || thread.status === "RUNNING") return;
+
+    setIsPushing(true);
+    setMergeError(null);
+    
+    const result = await actions.pushThread(thread.id);
+    setIsPushing(false);
+
+    if (result.success && result.data?.success) {
+      // Refresh thread state to get updated commit hash
+      const stateResult = await actions.getThreadState(thread.id);
+      if (stateResult.success && stateResult.data) {
+        setThread(stateResult.data);
+      }
+    } else {
+      setMergeError(result.error || result.data?.error || "Push failed");
+    }
   };
 
   // Merge thread to main
@@ -370,12 +392,20 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
         {thread.status === "IDLE" && (
           <>
             <button
+              onClick={handlePush}
+              disabled={isPushing || isMerging}
+              style={styles.pushButton}
+              title="Push branch to remote"
+            >
+              {isPushing ? "..." : "↑"}
+            </button>
+            <button
               onClick={handleMerge}
-              disabled={isMerging}
+              disabled={isMerging || isPushing}
               style={styles.mergeButton}
               title="Merge changes to main"
             >
-              {isMerging ? "Merging..." : "✓ Merge"}
+              {isMerging ? "..." : "✓ Merge"}
             </button>
             <button
               onClick={handleNewSession}
@@ -712,6 +742,20 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: "#ef4444",
     color: "#fff",
     borderRadius: "4px",
+  },
+  pushButton: {
+    width: "24px",
+    height: "20px",
+    padding: 0,
+    fontSize: "12px",
+    backgroundColor: "#3b82f6",
+    color: "#fff",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   mergeButton: {
     padding: "2px 8px",

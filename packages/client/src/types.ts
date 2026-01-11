@@ -60,6 +60,8 @@ export interface VibeActions {
   sendPrompt: (threadId: string, message: string) => Promise<ActionResult<ChatResult>>;
   /** Merge thread to main branch */
   mergeThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
+  /** Push thread branch to remote */
+  pushThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
   /** Check control plane health */
   checkHealth: () => Promise<ActionResult<{ status: string; workingDir: string }>>;
   /** List all threads */
