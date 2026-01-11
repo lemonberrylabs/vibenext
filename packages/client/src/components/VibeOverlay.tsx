@@ -31,19 +31,9 @@ function isProduction(): boolean {
 }
 
 export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: VibeOverlayProps) {
-  // SECURITY: Block rendering in production unless explicitly overridden
-  // This is the first line of defense - even if users forget to conditionally render
-  if (isProduction() && !dangerouslyAllowProduction) {
-    // Log warning in case this somehow gets rendered
-    if (typeof window !== "undefined") {
-      console.warn(
-        "[VibeCoder] Production environment detected. " +
-        "VibeOverlay is automatically disabled for security. " +
-        "This is a development-only tool."
-      );
-    }
-    return null;
-  }
+  // SECURITY: Check if we should be disabled (computed once, stable reference)
+  const shouldDisable = isProduction() && !dangerouslyAllowProduction;
+
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
@@ -290,26 +280,28 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     });
   };
 
-  // Don't render in production or if not configured
+  // SECURITY: Block rendering in production unless explicitly overridden
+  if (shouldDisable) {
+    return null;
+  }
+
+  // Don't render if not configured
   if (!isConfigured) {
     // Show a minimal indicator in development
-    if (process.env.NODE_ENV === "development") {
-      return (
-        <div style={styles.container}>
-          <div 
-            style={{
-              ...styles.fab,
-              backgroundColor: "#6b7280",
-              cursor: "default",
-            }}
-            title="VIBE_PASSWORD not configured"
-          >
-            🔒
-          </div>
+    return (
+      <div style={styles.container}>
+        <div 
+          style={{
+            ...styles.fab,
+            backgroundColor: "#6b7280",
+            cursor: "default",
+          }}
+          title="VIBE_PASSWORD not configured"
+        >
+          🔒
         </div>
-      );
-    }
-    return null;
+      </div>
+    );
   }
 
   // Show loading state
