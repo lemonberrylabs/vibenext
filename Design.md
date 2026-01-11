@@ -51,123 +51,53 @@ The system consists of two distinct npm packages managed in a monorepo.
 | Host | `127.0.0.1` | Security: localhost only |
 | Working Directory | `process.cwd()` | User's project root where `.git` lives |
 
-### 2.2 Data Structures (In-Memory)
+### 2.2 Data Structures
 
-```typescript
-type ThreadStatus = 'IDLE' | 'RUNNING' | 'ERROR';
+Thread state is maintained in-memory as a `Map<string, Thread>`.
 
-/** Async operations that can be in progress */
-type OperationType = 'creating' | 'switching' | 'merging' | 'pushing' | null;
+Key concepts:
+- **ThreadStatus**: `IDLE` | `RUNNING` | `ERROR`
+- **OperationType**: `creating` | `switching` | `merging` | `pushing` | `null`
+- **Thread**: Contains id, branchName, status, history, operation, etc.
 
-interface Thread {
-  id: string;                    // UUID
-  branchName: string;            // "feat/vibe-{id.slice(0,8)}"
-  createdAt: number;             // Timestamp
-  status: ThreadStatus;          // Current status
-  history: MessageParam[];       // Anthropic SDK Message format
-  lastCommitHash: string | null; // Latest auto-commit
-  errorMessage?: string;         // Error details if status === 'ERROR'
-  operation: OperationType;      // Current async operation in progress
-}
-
-// Global State
-const threads = new Map<string, Thread>();
-```
+> See: `packages/control-plane/src/types.ts`
 
 ### 2.3 API Contract (HTTP)
 
 All mutating endpoints return **immediately**. Background work updates thread state. Client polls for completion.
 
-#### `GET /health`
-- **Response:** `{ status: 'ok', workingDir: string }`
+| Endpoint | Method | Action | Response |
+|----------|--------|--------|----------|
+| `/health` | GET | Health check | `{ status, workingDir }` |
+| `/threads` | GET | List all threads | `ThreadStateResponse[]` |
+| `/threads` | POST | Create thread (async) | `{ threadId, branchName, status }` |
+| `/threads/:id` | GET | Get thread state | `ThreadStateResponse` |
+| `/threads/:id/chat` | POST | Send message (async) | `{ status: 'RUNNING' }` |
+| `/threads/:id/merge` | POST | Merge to main (async) | `{ success: true }` |
+| `/threads/:id/switch` | POST | Switch branch (async) | `{ success: true }` |
+| `/threads/:id/push` | POST | Push to remote (async) | `{ success: true }` |
 
-#### `GET /threads`
-- **Response:** `ThreadStateResponse[]` - All threads with full state
-
-#### `POST /threads`
-- **Action:** 
-  1. Generate `threadId`, create Thread record with `operation: 'creating'`
-  2. Return immediately
-  3. Background: Auto-commit dirty changes, create branch `feat/vibe-{id}`
-  4. Background complete: Set `operation: null`
-- **Response:** `{ threadId, branchName, status: 'IDLE' }`
-
-#### `GET /threads/:id`
-- **Response:** Full `ThreadStateResponse` (status, history, operation, etc.)
-- **Use Case:** Client polling for updates
-
-#### `POST /threads/:id/chat`
-- **Payload:** `{ message: string }`
-- **Action:**
-  1. Validate thread exists and not busy (`status !== 'RUNNING'`, `operation === null`)
-  2. Set `status: 'RUNNING'`, return immediately
-  3. Background: Checkout branch, invoke Claude Agent
-  4. Background: On completion, auto-commit, set `status: 'IDLE'`
-- **Response:** `{ status: 'RUNNING' }`
-
-#### `POST /threads/:id/merge`
-- **Action:**
-  1. Validate thread, set `operation: 'merging'`, return immediately
-  2. Background: Checkout thread branch, commit changes, checkout main, merge, push
-  3. Background complete: Delete thread from registry
-- **Response:** `{ success: true }`
-
-#### `POST /threads/:id/switch`
-- **Action:**
-  1. Validate thread, set `operation: 'switching'`, return immediately
-  2. Background: Auto-commit current changes, checkout target branch
-  3. Background complete: Set `operation: null`
-- **Response:** `{ success: true }`
-
-#### `POST /threads/:id/push`
-- **Action:**
-  1. Validate thread, set `operation: 'pushing'`, return immediately
-  2. Background: Commit changes, push branch to remote
-  3. Background complete: Set `operation: null`
-- **Response:** `{ success: true }`
+> See: `packages/control-plane/src/server.ts`
 
 ### 2.4 Agent SDK Integration
 
-```typescript
-const SYSTEM_PROMPT = `You are a coding assistant modifying the local codebase.
+System prompt instructs Claude to:
+- Use `ls` and `grep` to explore before making changes
+- Run `tsc` or build checks when unsure
+- Make targeted, minimal changes
+- Explain actions as it goes
 
-IMPORTANT GUIDELINES:
-- Use ls and grep to explore the codebase before making changes.
-- Always run tsc or a build check if unsure before finishing.
-- Make targeted, minimal changes to accomplish the user's request.
-- If you encounter errors, try to fix them before giving up.
-- Explain what you're doing as you go.
+**Tools provided:** `bash`, `read_file`, `write_file`, `list_files`
 
-You have access to the filesystem and can execute bash commands.`;
-```
-
-**Tools Provided:**
-| Tool | Description |
-|------|-------------|
-| `bash` | Execute shell commands (60s timeout) |
-| `read_file` | Read file contents |
-| `write_file` | Write/create files |
-| `list_files` | List directory contents |
+> See: `packages/control-plane/src/agent.ts`
 
 ### 2.5 Git Manager
 
-Wraps `simple-git` with exponential backoff retry logic for lock conflicts:
+Wraps `simple-git` with exponential backoff retry logic (5 retries) for lock conflicts.
 
-```typescript
-class GitManager {
-  // Retry up to 5 times with exponential backoff
-  // Handles: index.lock, "Unable to create", "Another git process"
-  private async withRetry<T>(operation: () => Promise<T>): Promise<T>;
-  
-  async isDirty(): Promise<boolean>;
-  async getCurrentBranch(): Promise<string>;
-  async autoCommit(message: string): Promise<string | null>;
-  async createBranch(branchName: string): Promise<void>;
-  async checkout(branchName: string): Promise<void>;
-  async merge(branchName: string): Promise<void>;
-  async push(remote: string, branch: string): Promise<void>;
-}
-```
+Handles: `index.lock`, "Unable to create", "Another git process" errors.
+
+> See: `packages/control-plane/src/git.ts`
 
 ---
 
@@ -193,45 +123,14 @@ class GitManager {
 
 Since Server Actions cannot be directly exported from npm packages, we use a delegation pattern:
 
-```typescript
-// In @vibecoder/client/lib/controlPlane.ts
-export async function createThreadImpl(config?: ControlPlaneConfig): Promise<ActionResult<CreateThreadResult>>;
-export async function getThreadStateImpl(threadId: string, config?: ControlPlaneConfig): Promise<ActionResult<ThreadState>>;
-export async function sendPromptImpl(threadId: string, message: string, config?: ControlPlaneConfig): Promise<ActionResult<ChatResult>>;
-// ... etc
-```
+1. Package exports implementation functions from `@vibecoder/client/lib/controlPlane`
+2. User creates their own Server Actions that delegate to these functions
+3. User passes actions to `VibeOverlay` as props
 
-**User creates their own Server Actions that delegate:**
+> See: `packages/client/src/lib/controlPlane.ts` for implementation functions  
+> See: `packages/client/src/types.ts` for `VibeActions` interface
 
-```typescript
-// app/actions/vibe.ts (in user's app)
-"use server";
-
-import { createThreadImpl } from "@vibecoder/client/lib/controlPlane";
-
-export const createThread = () => withAuth(() => createThreadImpl());
-```
-
-### 3.3 VibeActions Interface
-
-The `VibeOverlay` component accepts actions as props:
-
-```typescript
-interface VibeActions {
-  authenticate: (password: string) => Promise<{ success: boolean; error?: string }>;
-  checkAuth: () => Promise<{ authenticated: boolean; configured: boolean }>;
-  createThread: () => Promise<ActionResult<CreateThreadResult>>;
-  getThreadState: (threadId: string) => Promise<ActionResult<ThreadState>>;
-  sendPrompt: (threadId: string, message: string) => Promise<ActionResult<ChatResult>>;
-  mergeThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
-  pushThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
-  switchThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
-  checkHealth: () => Promise<ActionResult<{ status: string; workingDir: string }>>;
-  listThreads: () => Promise<ActionResult<ThreadState[]>>;
-}
-```
-
-### 3.4 Security: Multi-Layer Production Protection
+### 3.3 Security: Multi-Layer Production Protection
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -245,13 +144,9 @@ interface VibeActions {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Escape Hatch (NOT RECOMMENDED):**
-```typescript
-<VibeOverlay actions={actions} dangerouslyAllowProduction={true} />
-createThreadImpl({ dangerouslyAllowProduction: true })
-```
+Escape hatch: `dangerouslyAllowProduction` option (not recommended).
 
-### 3.5 Component: VibeOverlay.tsx
+### 3.4 Component: VibeOverlay.tsx
 
 **State Management:**
 - Uses `localStorage` for `vibe_active_thread_id` persistence
@@ -261,85 +156,22 @@ createThreadImpl({ dangerouslyAllowProduction: true })
 **UI Elements:**
 | Element | Purpose |
 |---------|---------|
-| FAB (Floating Action Button) | Minimize/expand toggle |
+| FAB | Minimize/expand toggle |
 | LockScreen | Password gate when not authenticated |
-| Branch Bar | Shows current branch, operation status, action buttons |
+| Branch Bar | Current branch, operation status, action buttons |
 | Thread List | Dropdown to switch between sessions |
 | Messages | Chat history with tool use visualization |
 | Input | Send prompts to Claude |
 
-**Operation Status Display:**
-- `operation === 'creating'` → "Creating branch..."
-- `operation === 'switching'` → "Switching..."
-- `operation === 'merging'` → "Merging..."
-- `operation === 'pushing'` → "Pushing..."
-- `status === 'RUNNING'` → "Working..."
-- `status === 'ERROR'` → Error badge
+> See: `packages/client/src/components/VibeOverlay.tsx`
 
 ---
 
-## 4. Integration & Developer Experience
+## 4. CLI Runner
 
-### 4.1 CLI Runner (`vibe-dev`)
+The `vibe-dev` script starts both Control Plane and Next.js dev server.
 
-```javascript
-#!/usr/bin/env node
-// bin/vibe-dev.js
-
-import { spawn } from "node:child_process";
-
-// 1. Start Control Plane (port 3001)
-const controlPlane = spawn("node", [CONTROL_PLANE_SCRIPT], {
-  stdio: "inherit",
-  cwd: process.cwd(),
-});
-
-// 2. Start Next.js (port 3000)
-setTimeout(() => {
-  spawn("npx", ["next", "dev"], { stdio: "inherit", cwd: process.cwd() });
-}, 1000);
-
-// 3. Handle graceful shutdown
-process.on("SIGINT", cleanup);
-process.on("SIGTERM", cleanup);
-```
-
-### 4.2 User Installation
-
-```bash
-pnpm add -D @vibecoder/client @vibecoder/control-plane
-```
-
-**Environment Variables (.env.local):**
-```env
-VIBE_PASSWORD=your_secret_password
-ANTHROPIC_API_KEY=your_anthropic_key
-```
-
-**Layout Integration:**
-```tsx
-// app/layout.tsx
-import { VibeOverlay } from "@vibecoder/client";
-import * as vibeActions from "./actions/vibe";
-
-export default function Layout({ children }) {
-  return (
-    <html>
-      <body>
-        {children}
-        <VibeOverlay actions={vibeActions} />
-      </body>
-    </html>
-  );
-}
-```
-
-> **Note:** No need for `process.env.NODE_ENV === 'development'` check - VibeOverlay automatically disables itself in production.
-
-**Run:**
-```bash
-npx vibe-dev
-```
+> See: `packages/control-plane/bin/vibe-dev.js`
 
 ---
 
@@ -359,87 +191,17 @@ npx vibe-dev
 
 ## 6. Implementation Checklist
 
-- [x] **Repo Setup:** Initialize monorepo with pnpm workspaces + Turborepo
-- [x] **Control Plane:** Scaffold Fastify server with localhost-only binding
-- [x] **Control Plane:** Implement GitManager with retry logic
-- [x] **Control Plane:** Implement Thread state machine with async operations
-- [x] **Control Plane:** Integrate Anthropic SDK with tools (bash, read_file, write_file, list_files)
-- [x] **Control Plane:** Add switch, push, merge endpoints (all async)
-- [x] **Client:** Build controlPlane.ts implementation functions with production guard
-- [x] **Client:** Build VibeOverlay.tsx with polling (2s interval when busy)
-- [x] **Client:** Build LockScreen.tsx for password authentication
-- [x] **Client:** Add thread switching UI
-- [x] **Client:** Add push/merge buttons with operation status display
-- [x] **Glue:** Create vibe-dev runner script (ESM)
-- [x] **Security:** Multi-layer production protection
-- [x] **DevOps:** GitHub Actions for lint/typecheck/build
-- [x] **Docs:** README with quick start and API reference
-
----
-
-## 7. Type Definitions Reference
-
-### Control Plane Types
-
-```typescript
-// packages/control-plane/src/types.ts
-
-type ThreadStatus = "IDLE" | "RUNNING" | "ERROR";
-type OperationType = "creating" | "switching" | "merging" | "pushing" | null;
-
-interface Thread {
-  id: string;
-  branchName: string;
-  createdAt: number;
-  status: ThreadStatus;
-  history: MessageParam[];
-  lastCommitHash: string | null;
-  errorMessage?: string;
-  operation: OperationType;
-}
-
-interface CreateThreadResponse {
-  threadId: string;
-  branchName: string;
-  status: ThreadStatus;
-}
-
-interface ChatResponse {
-  status: ThreadStatus;
-}
-
-interface MergeResponse {
-  success: boolean;
-  error?: string;
-}
-
-interface ThreadStateResponse extends Thread {}
-```
-
-### Client Types
-
-```typescript
-// packages/client/src/types.ts
-
-interface ActionResult<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-interface ThreadState {
-  id: string;
-  branchName: string;
-  createdAt: number;
-  status: ThreadStatus;
-  history: ThreadMessage[];
-  lastCommitHash: string | null;
-  errorMessage?: string;
-  operation?: OperationType;
-}
-
-interface ControlPlaneConfig {
-  url?: string;
-  dangerouslyAllowProduction?: boolean;
-}
-```
+- [x] Repo Setup: pnpm workspaces + Turborepo
+- [x] Control Plane: Fastify server with localhost-only binding
+- [x] Control Plane: GitManager with retry logic
+- [x] Control Plane: Thread state machine with async operations
+- [x] Control Plane: Anthropic SDK with tools
+- [x] Control Plane: switch, push, merge endpoints (all async)
+- [x] Client: controlPlane.ts implementation functions with production guard
+- [x] Client: VibeOverlay.tsx with polling
+- [x] Client: LockScreen.tsx for password auth
+- [x] Client: Thread switching UI
+- [x] Client: Push/merge buttons with operation status
+- [x] CLI: vibe-dev runner script
+- [x] Security: Multi-layer production protection
+- [x] DevOps: GitHub Actions for lint/typecheck/build
