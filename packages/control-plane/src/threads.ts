@@ -59,12 +59,17 @@ export async function createThread(workingDir: string): Promise<Thread> {
 
 /**
  * Send a chat message to a thread (async processing)
+ * 
+ * IMPORTANT: This function returns IMMEDIATELY with RUNNING status.
+ * All work (branch checkout, agent processing) happens in the background.
+ * This prevents blocking the HTTP response while files change,
+ * which could cause issues with Next.js HMR.
  */
-export async function sendMessage(
+export function sendMessage(
   threadId: string,
   message: string,
   workingDir: string
-): Promise<ThreadStatus> {
+): ThreadStatus {
   const thread = threads.get(threadId);
   if (!thread) {
     throw new Error(`Thread ${threadId} not found`);
@@ -74,36 +79,57 @@ export async function sendMessage(
     throw new Error(`Thread ${threadId} is already processing a message`);
   }
 
-  // Ensure we're on the correct branch for this thread
-  const gitManager = getGitManager(workingDir);
-  const currentBranch = await gitManager.getCurrentBranch();
-  if (currentBranch !== thread.branchName) {
-    console.log(`[Threads] Switching to branch '${thread.branchName}' for thread ${threadId}`);
-    await gitManager.checkout(thread.branchName);
-  }
-
-  // Update status to RUNNING
+  // Update status to RUNNING immediately
   thread.status = "RUNNING";
   thread.errorMessage = undefined;
 
-  // Process message asynchronously (don't await)
-  const agentManager = getAgentManager(workingDir);
-  agentManager
-    .processMessage(thread, message, (updatedThread) => {
-      // Update the thread in our registry
-      threads.set(threadId, { ...updatedThread });
-    })
-    .catch((error) => {
-      console.error(`[Threads] Error processing message for thread ${threadId}:`, error);
-      thread.status = "ERROR";
-      thread.errorMessage = error instanceof Error ? error.message : "Unknown error";
-    });
+  // Do ALL work asynchronously - including branch checkout
+  // This ensures the HTTP response returns before any file changes
+  processMessageAsync(threadId, thread, message, workingDir);
 
   return thread.status;
 }
 
 /**
+ * Internal async function that does the actual work
+ * Runs completely in the background after HTTP response is sent
+ */
+async function processMessageAsync(
+  threadId: string,
+  thread: Thread,
+  message: string,
+  workingDir: string
+): Promise<void> {
+  try {
+    // First, ensure we're on the correct branch
+    const gitManager = getGitManager(workingDir);
+    const currentBranch = await gitManager.getCurrentBranch();
+    if (currentBranch !== thread.branchName) {
+      console.log(`[Threads] Switching to branch '${thread.branchName}' for thread ${threadId}`);
+      await gitManager.checkout(thread.branchName);
+    }
+
+    // Now run the agent
+    const agentManager = getAgentManager(workingDir);
+    await agentManager.processMessage(thread, message, (updatedThread) => {
+      // Update the thread in our registry
+      threads.set(threadId, { ...updatedThread });
+    });
+  } catch (error) {
+    console.error(`[Threads] Error processing message for thread ${threadId}:`, error);
+    thread.status = "ERROR";
+    thread.errorMessage = error instanceof Error ? error.message : "Unknown error";
+    threads.set(threadId, { ...thread });
+  }
+}
+
+/**
  * Merge a thread's branch into main and push
+ * 
+ * NOTE: This is intentionally synchronous (awaited) because:
+ * 1. User initiated this action and expects to know when it completes
+ * 2. The UI should show success/failure before allowing further actions
+ * 3. File changes here are expected - we're completing the workflow
  */
 export async function mergeThread(
   threadId: string,

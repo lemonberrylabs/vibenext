@@ -111,9 +111,11 @@ async function main() {
   );
 
   // Send chat message to thread
+  // NOTE: This endpoint returns IMMEDIATELY. The actual processing
+  // happens in the background. Client should poll GET /threads/:id for updates.
   fastify.post<{ Params: { id: string }; Body: ChatRequest }>(
     "/threads/:id/chat",
-    async (request, reply): Promise<ChatResponse | ErrorResponse> => {
+    (request, reply): ChatResponse | ErrorResponse => {
       const { id } = request.params;
       const { message } = request.body;
 
@@ -123,7 +125,8 @@ async function main() {
       }
 
       try {
-        const status = await sendMessage(id, message, WORKING_DIR);
+        // sendMessage returns synchronously - all async work happens in background
+        const status = sendMessage(id, message, WORKING_DIR);
         return { status };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
