@@ -1,6 +1,6 @@
 # Technical Design Doc: Vibe Coder (MVP)
 
-**Version:** 2.0  
+**Version:** 0.1.0 (Unreleased)  
 **Architecture:** Multi-Process Sidecar  
 **Repository Structure:** Monorepo (pnpm + Turborepo)
 
