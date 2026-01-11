@@ -71,20 +71,14 @@ async function main() {
     }));
   });
 
-  // Create a new thread
-  fastify.post("/threads", async (): Promise<CreateThreadResponse | ErrorResponse> => {
-    try {
-      const thread = await createThread(WORKING_DIR);
-      return {
-        threadId: thread.id,
-        branchName: thread.branchName,
-        status: thread.status,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("[Server] Failed to create thread:", message);
-      return { error: message };
-    }
+  // Create a new thread (returns immediately, git ops happen in background)
+  fastify.post("/threads", (): CreateThreadResponse => {
+    const thread = createThread(WORKING_DIR);
+    return {
+      threadId: thread.id,
+      branchName: thread.branchName,
+      status: thread.status,
+    };
   });
 
   // Get thread state

@@ -3,7 +3,7 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 export type ThreadStatus = "IDLE" | "RUNNING" | "ERROR";
 
 /** Async operations that can be in progress */
-export type OperationType = "switching" | "merging" | "pushing" | null;
+export type OperationType = "creating" | "switching" | "merging" | "pushing" | null;
 
 export interface Thread {
   id: string;

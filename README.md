@@ -173,13 +173,28 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Control Plane (Port 3001)                              │
+│  Control Plane (Port 3001)  [STATEFUL]                  │
 │  - Claude Agent SDK                                     │
-│  - Git operations                                       │
+│  - Git operations (async)                               │
 │  - File I/O                                             │
 │  - Thread state management                              │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Communication Model
+
+The Control Plane is **stateful** and survives HMR restarts. The communication model is designed around this:
+
+1. **Commands return immediately** - All mutating operations (create thread, send message, merge, switch, push) return as soon as the command is acknowledged. The actual work happens asynchronously in the background.
+
+2. **Client polls for state** - The client regularly polls `GET /threads/:id` to get the current thread state, including any operation in progress.
+
+3. **Client is stateless** - The Next.js app can restart at any time (HMR, crashes, manual refresh). All state is recovered by polling the Control Plane.
+
+This design ensures that:
+- Git operations that trigger HMR don't block the response
+- The UI stays responsive during long-running AI operations
+- State is never lost when the app restarts
 
 ## Configuration
 
@@ -258,8 +273,11 @@ interface VibeActions {
   pushThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
   checkHealth: () => Promise<ActionResult<{ status: string; workingDir: string }>>;
   listThreads: () => Promise<ActionResult<ThreadState[]>>;
-  switchThread: (threadId: string) => Promise<ActionResult<ThreadState>>;
+  switchThread: (threadId: string) => Promise<ActionResult<MergeResult>>;
 }
+
+// All mutating operations (createThread, sendPrompt, mergeThread, pushThread, switchThread)
+// return immediately with acknowledgment. Poll getThreadState for completion.
 ```
 
 ### Implementation Functions
@@ -284,8 +302,11 @@ Each function accepts an optional config object:
 ```typescript
 interface ControlPlaneConfig {
   url?: string; // Override the control plane URL
+  dangerouslyAllowProduction?: boolean; // Allow running in production (NOT RECOMMENDED)
 }
 ```
+
+**Async Operations**: The mutating functions (`createThreadImpl`, `sendPromptImpl`, `mergeThreadImpl`, `pushThreadImpl`, `switchThreadImpl`) return immediately after the command is acknowledged. The actual work happens asynchronously in the control plane. Use `getThreadStateImpl` to poll for completion by checking the `operation` field.
 
 ## Development
 

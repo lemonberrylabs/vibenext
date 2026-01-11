@@ -47,8 +47,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
   const [allThreads, setAllThreads] = useState<ThreadState[]>([]);
   const [showThreadList, setShowThreadList] = useState(false);
   const [input, setInput] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -158,14 +157,14 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thread?.history]);
 
-  // Create a new thread
+  // Create a new thread (async - returns immediately, poll for completion)
   const handleCreateThread = async () => {
-    setIsCreating(true);
-    setMergeError(null);
+    setError(null);
     const result = await actions.createThread();
-    setIsCreating(false);
 
     if (result.success && result.data) {
+      // Create local thread state with "creating" operation
+      // Polling will update when git operations complete
       const newThread: ThreadState = {
         id: result.data.threadId,
         branchName: result.data.branchName,
@@ -173,11 +172,13 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
         status: result.data.status,
         history: [],
         lastCommitHash: null,
+        operation: "creating",
       };
       setThread(newThread);
       localStorage.setItem(STORAGE_KEY, newThread.id);
-      // Refresh thread list
       loadAllThreads();
+    } else {
+      setError(result.error || "Failed to create thread");
     }
   };
 
@@ -185,23 +186,21 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
   const handleNewSession = () => {
     localStorage.removeItem(STORAGE_KEY);
     setThread(null);
-    setMergeError(null);
+    setError(null);
   };
 
   // Push thread branch to remote (async - returns immediately, poll for completion)
   const handlePush = async () => {
     if (!thread || thread.status === "RUNNING" || thread.operation) return;
 
-    setMergeError(null);
-    
+    setError(null);
     const result = await actions.pushThread(thread.id);
 
     if (result.success && result.data?.success) {
-      // Update local state to show operation in progress
-      // Polling will update when complete
+      // Update local state to show operation in progress - polling will update
       setThread(prev => prev ? { ...prev, operation: "pushing" } : null);
     } else {
-      setMergeError(result.error || result.data?.error || "Push failed");
+      setError(result.error || result.data?.error || "Push failed");
     }
   };
 
@@ -209,16 +208,14 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
   const handleMerge = async () => {
     if (!thread || thread.status === "RUNNING" || thread.operation) return;
 
-    setMergeError(null);
-    
+    setError(null);
     const result = await actions.mergeThread(thread.id);
 
     if (result.success && result.data?.success) {
-      // Update local state to show operation in progress
-      // Polling will update when complete (thread will be deleted on success)
+      // Update local state to show operation in progress - polling will update
       setThread(prev => prev ? { ...prev, operation: "merging" } : null);
     } else {
-      setMergeError(result.error || result.data?.error || "Merge failed");
+      setError(result.error || result.data?.error || "Merge failed");
     }
   };
 
@@ -228,24 +225,22 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
       setShowThreadList(false);
       return;
     }
+    if (thread?.operation) return;
 
-    if (thread?.operation) return; // Already has operation in progress
-
-    setMergeError(null);
+    setError(null);
     setShowThreadList(false);
     
     const result = await actions.switchThread(targetThreadId);
 
     if (result.success && result.data?.success) {
-      // Store the target thread ID and start polling it
+      // Switch to polling the target thread
       localStorage.setItem(STORAGE_KEY, targetThreadId);
-      // Load the target thread state (it will have operation: "switching")
       const targetThread = await actions.getThreadState(targetThreadId);
       if (targetThread.success && targetThread.data) {
         setThread(targetThread.data);
       }
     } else {
-      setMergeError(result.error || result.data?.error || "Failed to switch thread");
+      setError(result.error || result.data?.error || "Failed to switch thread");
     }
   };
 
@@ -363,13 +358,9 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
       </p>
       <button 
         onClick={handleCreateThread}
-        disabled={isCreating}
-        style={{
-          ...styles.createButton,
-          opacity: isCreating ? 0.7 : 1,
-        }}
+        style={styles.createButton}
       >
-        {isCreating ? "Creating..." : "Start New Session"}
+        Start New Session
       </button>
     </div>
   ) : (
@@ -389,7 +380,10 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
             </span>
           )}
         </button>
-        {thread.status === "RUNNING" && (
+        {thread.operation === "creating" && (
+          <span style={styles.statusBadge}>Creating branch...</span>
+        )}
+        {thread.status === "RUNNING" && !thread.operation && (
           <span style={styles.statusBadge}>Working...</span>
         )}
         {thread.operation === "switching" && (
@@ -470,10 +464,10 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
         </div>
       )}
       
-      {/* Merge error */}
-      {mergeError && (
-        <div style={styles.mergeErrorBar}>
-          ⚠️ {mergeError}
+      {/* Error display */}
+      {error && (
+        <div style={styles.errorBar}>
+          ⚠️ {error}
         </div>
       )}
 
@@ -520,12 +514,12 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
           onChange={(e) => setInput(e.target.value)}
           placeholder="Describe what you want to build..."
           style={styles.input}
-          disabled={thread.status === "RUNNING"}
+          disabled={thread.status === "RUNNING" || !!thread.operation}
         />
         <button 
           type="submit" 
           style={styles.sendButton}
-          disabled={!input.trim() || thread.status === "RUNNING"}
+          disabled={!input.trim() || thread.status === "RUNNING" || !!thread.operation}
         >
           Send
         </button>
@@ -810,7 +804,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#888",
     fontFamily: "monospace",
   },
-  mergeErrorBar: {
+  errorBar: {
     padding: "8px 12px",
     backgroundColor: "rgba(239, 68, 68, 0.1)",
     borderBottom: "1px solid rgba(239, 68, 68, 0.3)",

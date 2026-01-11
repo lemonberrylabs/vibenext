@@ -24,24 +24,16 @@ export function getThread(threadId: string): Thread | undefined {
 
 /**
  * Create a new thread with its own Git branch
+ * 
+ * Returns IMMEDIATELY with the new thread (operation: "creating").
+ * Git branch creation happens in background.
+ * Client should poll to see when operation completes.
  */
-export async function createThread(workingDir: string): Promise<Thread> {
-  const gitManager = getGitManager(workingDir);
+export function createThread(workingDir: string): Thread {
   const threadId = uuidv4();
   const branchName = `feat/vibe-${threadId.slice(0, 8)}`;
 
-  // Check for uncommitted changes and handle them
-  const isDirty = await gitManager.isDirty();
-  if (isDirty) {
-    const currentBranch = await gitManager.getCurrentBranch();
-    console.log(`[Threads] Working directory is dirty on branch '${currentBranch}', auto-committing...`);
-    await gitManager.autoCommit(`WIP: Auto-save before vibe thread ${threadId.slice(0, 8)}`);
-  }
-
-  // Create new branch for this thread
-  console.log(`[Threads] Creating branch '${branchName}'...`);
-  await gitManager.createBranch(branchName);
-
+  // Create thread record immediately with "creating" operation
   const thread: Thread = {
     id: threadId,
     branchName,
@@ -49,13 +41,51 @@ export async function createThread(workingDir: string): Promise<Thread> {
     status: "IDLE",
     history: [],
     lastCommitHash: null,
-    operation: null,
+    operation: "creating",
   };
 
   threads.set(threadId, thread);
-  console.log(`[Threads] Thread ${threadId} created on branch ${branchName}`);
+  console.log(`[Threads] Thread ${threadId} registered, creating branch '${branchName}' in background...`);
+
+  // Do git operations in background
+  createThreadAsync(threadId, thread, branchName, workingDir);
 
   return thread;
+}
+
+async function createThreadAsync(
+  threadId: string,
+  thread: Thread,
+  branchName: string,
+  workingDir: string
+): Promise<void> {
+  const gitManager = getGitManager(workingDir);
+
+  try {
+    // Check for uncommitted changes and handle them
+    const isDirty = await gitManager.isDirty();
+    if (isDirty) {
+      const currentBranch = await gitManager.getCurrentBranch();
+      console.log(`[Threads] Working directory is dirty on branch '${currentBranch}', auto-committing...`);
+      await gitManager.autoCommit(`WIP: Auto-save before vibe thread ${threadId.slice(0, 8)}`);
+    }
+
+    // Create new branch for this thread
+    console.log(`[Threads] Creating branch '${branchName}'...`);
+    await gitManager.createBranch(branchName);
+
+    // Mark creation complete
+    thread.operation = null;
+    threads.set(threadId, { ...thread });
+    console.log(`[Threads] Thread ${threadId} ready on branch ${branchName}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Threads] Failed to create thread ${threadId}:`, message);
+    thread.operation = null;
+    thread.status = "ERROR";
+    thread.errorMessage = message;
+    threads.set(threadId, { ...thread });
+  }
 }
 
 /**
