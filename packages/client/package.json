@@ -9,9 +9,9 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./actions": {
-      "import": "./dist/actions/proxy.js",
-      "types": "./dist/actions/proxy.d.ts"
+    "./lib/controlPlane": {
+      "import": "./dist/lib/controlPlane.js",
+      "types": "./dist/lib/controlPlane.d.ts"
     }
   },
   "scripts": {

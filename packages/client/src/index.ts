@@ -1,6 +1,8 @@
 // Components
 export { VibeOverlay } from "./components/VibeOverlay";
+export type { VibeOverlayProps } from "./components/VibeOverlay";
 export { LockScreen } from "./components/LockScreen";
+export type { LockScreenProps } from "./components/LockScreen";
 
 // Types
 export type {
@@ -12,21 +14,9 @@ export type {
   ChatResult,
   MergeResult,
   ActionResult,
+  VibeActions,
 } from "./types";
 
-// Server Actions - re-export for convenience
-export {
-  createThread,
-  getThreadState,
-  sendPrompt,
-  mergeThread,
-  checkHealth,
-  listThreads,
-  switchThread,
-} from "./actions/controlPlane";
-
-export {
-  authenticate,
-  checkAuth,
-  logout,
-} from "./actions/auth";
+// Implementation functions are exported from ./lib/controlPlane
+// Users should import them as:
+// import { createThreadImpl, ... } from "@vibecoder/client/lib/controlPlane"

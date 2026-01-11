@@ -292,7 +292,10 @@ export function VibeOverlay({ actions }: VibeOverlayProps) {
   }
 
   const mainContent = !isAuthenticated ? (
-    <LockScreen onAuthenticated={() => setIsAuthenticated(true)} />
+    <LockScreen 
+      onAuthenticated={() => setIsAuthenticated(true)} 
+      authenticate={actions.authenticate}
+    />
   ) : connectionStatus === "disconnected" ? (
     <div style={styles.disconnected}>
       <span style={styles.disconnectedIcon}>⚠️</span>

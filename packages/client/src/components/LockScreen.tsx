@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { authenticate } from "../actions/auth";
 
-interface LockScreenProps {
+export interface LockScreenProps {
   onAuthenticated: () => void;
+  authenticate: (password: string) => Promise<{ success: boolean; error?: string }>;
 }
 
-export function LockScreen({ onAuthenticated }: LockScreenProps) {
+export function LockScreen({ onAuthenticated, authenticate }: LockScreenProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
