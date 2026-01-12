@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
-import type { Thread, ThreadStatus } from "./types";
-import { getGitManager } from "./git";
-import { getAgentManager } from "./agent";
+import type { Thread, ThreadStatus } from "./types.js";
+import { getGitManager } from "./git.js";
+import { getAgentManager } from "./agent.js";
 
 /**
  * In-memory thread registry
@@ -135,6 +135,8 @@ async function processMessageAsync(
   message: string,
   workingDir: string
 ): Promise<void> {
+  console.log(`[Threads] processMessageAsync started for thread ${threadId}`);
+
   try {
     // First, ensure we're on the correct branch
     const gitManager = getGitManager(workingDir);

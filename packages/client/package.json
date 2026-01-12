@@ -1,21 +1,40 @@
 {
   "name": "@vibecoder/client",
   "version": "0.1.0",
+  "description": "React client components for VibeCoder - an AI-powered coding assistant",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lemonberrylabs/vibecoder.git",
+    "directory": "packages/client"
+  },
+  "bugs": {
+    "url": "https://github.com/lemonberrylabs/vibecoder/issues"
+  },
+  "homepage": "https://github.com/lemonberrylabs/vibecoder#readme",
+  "keywords": ["vibecoder", "ai", "claude", "nextjs", "react", "coding-assistant"],
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     },
     "./lib/controlPlane": {
+      "types": "./dist/lib/controlPlane.d.ts",
       "import": "./dist/lib/controlPlane.js",
-      "types": "./dist/lib/controlPlane.d.ts"
+      "default": "./dist/lib/controlPlane.js"
     },
     "./server-actions": {
+      "types": "./dist/server-actions.d.ts",
       "import": "./dist/server-actions.js",
-      "types": "./dist/server-actions.d.ts"
+      "default": "./dist/server-actions.js"
     }
   },
   "scripts": {

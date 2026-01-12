@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ContentBlock } from "@anthropic-ai/sdk/resources/messages";
-import type { Thread } from "./types";
-import { getGitManager } from "./git";
+import type { Thread } from "./types.js";
+import { getGitManager } from "./git.js";
 
 const SYSTEM_PROMPT = `You are a coding assistant modifying the local codebase.
 
@@ -35,6 +35,8 @@ export class AgentManager {
     userMessage: string,
     onUpdate: (thread: Thread) => void
   ): Promise<void> {
+    console.log(`[AgentManager] Processing message for thread ${thread.id}: "${userMessage.slice(0, 50)}..."`);
+
     // Add user message to history
     thread.history.push({
       role: "user",
@@ -45,14 +47,19 @@ export class AgentManager {
       let continueLoop = true;
 
       while (continueLoop) {
+        const model = process.env.VIBE_ANTHROPIC_MODEL || "claude-opus-4-5";
+        console.log(`[AgentManager] Calling Claude API (model: ${model})...`);
+
         // Call Claude with current history
         const response = await this.client.messages.create({
-          model: process.env.VIBE_ANTHROPIC_MODEL || "claude-opus-4-5",
+          model,
           max_tokens: 8096,
           system: SYSTEM_PROMPT,
           tools: this.getToolDefinitions(),
           messages: thread.history,
         });
+
+        console.log(`[AgentManager] Claude response received (stop_reason: ${response.stop_reason})`);
 
         // Extract text and tool use from response
         const assistantContent = response.content;

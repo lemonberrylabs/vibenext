@@ -21,8 +21,8 @@ import {
   checkHealthImpl,
   listThreadsImpl,
   switchThreadImpl,
-} from "./lib/controlPlane";
-import type { ActionResult } from "./types";
+} from "./lib/controlPlane.js";
+import type { ActionResult } from "./types.js";
 
 const AUTH_COOKIE = "vibe-auth";
 

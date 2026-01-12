@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
-import type { ThreadState, ThreadMessage, ContentBlock, VibeActions } from "../types";
-import { LockScreen } from "./LockScreen";
+import type { ThreadState, ThreadMessage, ContentBlock, VibeActions } from "../types.js";
+import { LockScreen } from "./LockScreen.js";
 
 export interface VibeOverlayProps {
   /**

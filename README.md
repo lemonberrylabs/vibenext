@@ -19,40 +19,125 @@ VIBE_PASSWORD=your_secret_password
 ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
-### 3. Create server actions
+### 3. Configure Next.js
+
+Add `transpilePackages` to your `next.config.ts` (or `.js`/`.mjs`):
+
+```typescript
+const nextConfig: NextConfig = {
+  transpilePackages: ['@vibecoder/client', '@vibecoder/control-plane'],
+  // ... rest of config
+};
+```
+
+### 4. Create server actions
 
 Create `app/actions/vibe.ts`:
 
 ```typescript
 "use server";
-export * from "@vibecoder/client/server-actions";
+
+import {
+  authenticate as _authenticate,
+  checkAuth as _checkAuth,
+  createThread as _createThread,
+  getThreadState as _getThreadState,
+  sendPrompt as _sendPrompt,
+  mergeThread as _mergeThread,
+  pushThread as _pushThread,
+  listThreads as _listThreads,
+  switchThread as _switchThread,
+  checkHealth as _checkHealth,
+} from "@vibecoder/client/server-actions";
+
+export async function authenticate(password: string) {
+  return _authenticate(password);
+}
+
+export async function checkAuth() {
+  return _checkAuth();
+}
+
+export async function createThread() {
+  return _createThread();
+}
+
+export async function getThreadState(id: string) {
+  return _getThreadState(id);
+}
+
+export async function sendPrompt(id: string, message: string) {
+  return _sendPrompt(id, message);
+}
+
+export async function mergeThread(id: string) {
+  return _mergeThread(id);
+}
+
+export async function pushThread(id: string) {
+  return _pushThread(id);
+}
+
+export async function listThreads() {
+  return _listThreads();
+}
+
+export async function switchThread(id: string) {
+  return _switchThread(id);
+}
+
+export async function checkHealth() {
+  return _checkHealth();
+}
 ```
 
-This re-exports all the pre-built server actions with authentication handling included. The library uses your `VIBE_PASSWORD` environment variable and manages sessions via HTTP-only cookies.
+> **Note:** Next.js 14+ requires explicit async function definitions in "use server" files. Re-exports like `export * from "..."` are not supported.
 
-### 4. Add the overlay to your layout
+### 5. Add the overlay to your layout
 
 Update `app/layout.tsx`:
 
 ```tsx
 import { VibeOverlay } from "@vibecoder/client";
-import * as vibeActions from "./actions/vibe";
+import {
+  authenticate,
+  checkAuth,
+  createThread,
+  getThreadState,
+  sendPrompt,
+  mergeThread,
+  pushThread,
+  listThreads,
+  switchThread,
+  checkHealth,
+} from "./actions/vibe";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html>
       <body>
         {children}
-        <VibeOverlay actions={vibeActions} />
+        <VibeOverlay actions={{
+          authenticate,
+          checkAuth,
+          createThread,
+          getThreadState,
+          sendPrompt,
+          mergeThread,
+          pushThread,
+          listThreads,
+          switchThread,
+          checkHealth,
+        }} />
       </body>
     </html>
   );
 }
 ```
 
-> **Note:** You don't need to wrap VibeOverlay in a `NODE_ENV` check - it automatically disables itself in production.
+> **Note:** Pass individual functions as a plain object, not a module object. The overlay automatically disables itself in production.
 
-### 5. Run with the CLI
+### 6. Run with the CLI
 
 ```bash
 npx vibe-dev
@@ -95,11 +180,55 @@ Vibe Coder is a **development-only tool** with automatic production protection:
 
 ## Development
 
+### Setup
+
 ```bash
 pnpm install
-pnpm build
-pnpm typecheck
 ```
+
+### Build
+
+```bash
+pnpm build        # Build all packages
+pnpm typecheck    # Type check without emitting
+pnpm clean        # Clean all dist folders
+```
+
+### Local Development
+
+To test changes locally in another project:
+
+```bash
+# In your Next.js project
+pnpm add @vibecoder/client@file:../vibecoder/packages/client
+pnpm add @vibecoder/control-plane@file:../vibecoder/packages/control-plane
+```
+
+Changes to the source are reflected after running `pnpm build` in the vibecoder repo (no reinstall needed with `file:` protocol).
+
+### Publishing to npm
+
+```bash
+# Ensure you're logged in to npm
+npm login
+
+# Build all packages
+pnpm build
+
+# Publish (from repo root)
+pnpm -r publish --access public
+```
+
+Or publish individually:
+
+```bash
+cd packages/client && npm publish --access public
+cd packages/control-plane && npm publish --access public
+```
+
+### Versioning
+
+Use [changesets](https://github.com/changesets/changesets) or manually bump versions in both `packages/client/package.json` and `packages/control-plane/package.json` before publishing.
 
 ## License
 

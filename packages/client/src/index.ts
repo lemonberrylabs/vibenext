@@ -1,8 +1,8 @@
 // Components
-export { VibeOverlay } from "./components/VibeOverlay";
-export type { VibeOverlayProps } from "./components/VibeOverlay";
-export { LockScreen } from "./components/LockScreen";
-export type { LockScreenProps } from "./components/LockScreen";
+export { VibeOverlay } from "./components/VibeOverlay.js";
+export type { VibeOverlayProps } from "./components/VibeOverlay.js";
+export { LockScreen } from "./components/LockScreen.js";
+export type { LockScreenProps } from "./components/LockScreen.js";
 
 // Types
 export type {
@@ -16,11 +16,11 @@ export type {
   MergeResult,
   ActionResult,
   VibeActions,
-} from "./types";
+} from "./types.js";
 
 // Implementation functions are exported from ./lib/controlPlane
 // Users should import them as:
 // import { createThreadImpl, ... } from "@vibecoder/client/lib/controlPlane"
 
 // Re-export ControlPlaneConfig type for users who need it
-export type { ControlPlaneConfig } from "./lib/controlPlane";
+export type { ControlPlaneConfig } from "./lib/controlPlane.js";

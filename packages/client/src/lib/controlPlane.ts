@@ -13,7 +13,7 @@ import type {
   ChatResult, 
   MergeResult,
   ActionResult 
-} from "../types";
+} from "../types.js";
 
 const DEFAULT_CONTROL_PLANE_URL = "http://127.0.0.1:3001";
 
@@ -63,14 +63,17 @@ async function controlPlaneFetch<T>(
   if (productionError) return productionError;
 
   const baseUrl = config?.url || process.env.VIBE_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE_URL;
-  
+
   try {
+    // Only set Content-Type if there's a body (Fastify rejects empty bodies with json content-type)
+    const headers: Record<string, string> = { ...options.headers as Record<string, string> };
+    if (options.body) {
+      headers["Content-Type"] = "application/json";
+    }
+
     const response = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
     });
 
     if (!response.ok) {

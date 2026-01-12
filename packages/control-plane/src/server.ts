@@ -8,7 +8,7 @@ import {
   mergeThread,
   switchToThread,
   pushThread,
-} from "./threads";
+} from "./threads.js";
 import type {
   ChatRequest,
   CreateThreadResponse,
@@ -16,7 +16,7 @@ import type {
   ThreadStateResponse,
   MergeResponse,
   ErrorResponse,
-} from "./types";
+} from "./types.js";
 
 const PORT = parseInt(process.env.VIBE_PORT || "3001", 10);
 const HOST = "127.0.0.1"; // Security: Only bind to localhost
@@ -25,6 +25,13 @@ const HOST = "127.0.0.1"; // Security: Only bind to localhost
 const WORKING_DIR = process.cwd();
 
 async function main() {
+  // Validate required environment variables
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    console.error("\n[VibeCoder Control Plane] ERROR: ANTHROPIC_API_KEY is not set or is empty.");
+    console.error("[VibeCoder Control Plane] Please set ANTHROPIC_API_KEY in your .env.local file.\n");
+    process.exit(1);
+  }
+
   console.log(`[VibeCoder Control Plane] Starting...`);
   console.log(`[VibeCoder Control Plane] Working directory: ${WORKING_DIR}`);
 
