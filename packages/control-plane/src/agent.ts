@@ -47,7 +47,7 @@ export class AgentManager {
       while (continueLoop) {
         // Call Claude with current history
         const response = await this.client.messages.create({
-          model: process.env.VIBE_ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
+          model: process.env.VIBE_ANTHROPIC_MODEL || "claude-opus-4-5",
           max_tokens: 8096,
           system: SYSTEM_PROMPT,
           tools: this.getToolDefinitions(),

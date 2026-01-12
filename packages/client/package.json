@@ -12,6 +12,10 @@
     "./lib/controlPlane": {
       "import": "./dist/lib/controlPlane.js",
       "types": "./dist/lib/controlPlane.d.ts"
+    },
+    "./server-actions": {
+      "import": "./dist/server-actions.js",
+      "types": "./dist/server-actions.d.ts"
     }
   },
   "scripts": {
