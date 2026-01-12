@@ -1,166 +1,207 @@
-Technical Design Doc: Vibe Coder (MVP)
-Version: 1.0
-Architecture: Multi-Process Sidecar
-Repository Structure: Monorepo (Turborepo/Workspaces)
-1. System Overview
+# Technical Design Doc: Vibe Coder (MVP)
+
+**Version:** 0.1.0 (Unreleased)  
+**Architecture:** Multi-Process Sidecar  
+**Repository Structure:** Monorepo (pnpm + Turborepo)
+
+---
+
+## 1. System Overview
+
 The system consists of two distinct npm packages managed in a monorepo.
- * @vibecoder/control-plane: A standalone Node.js server (Port 3001) that runs the Claude Agent SDK, manages Git state, and performs file I/O. It is the "Source of Truth".
- * @vibecoder/client: A library containing the React Overlay and Next.js Server Actions to be installed in the user's Next.js application (Port 3000).
-2. Package 1: @vibecoder/control-plane
-Role: The Brain. It runs indefinitely, surviving Next.js HMR restarts.
-Tech Stack: Node.js, Fastify (or Express), simple-git, @anthropic-ai/claude-agent-sdk.
-2.1 Server Configuration
- * Port: Default 3001 (configurable via VIBE_PORT).
- * Security: Bind strictly to 127.0.0.1. Reject non-local requests.
- * Working Directory: Must be initialized with process.cwd() set to the user's project root (where .git lives).
-2.2 Data Structures (In-Memory)
-The server must maintain a registry of active threads.
-type ThreadStatus = 'IDLE' | 'RUNNING' | 'ERROR';
 
-interface Thread {
-  id: string; // UUID
-  branchName: string; // "feat/vibe-{id}"
-  createdAt: number;
-  status: ThreadStatus;
-  history: Array<any>; // Anthropic SDK Message format
-  lastCommitHash: string | null;
-}
+| Package | Role | Port |
+|---------|------|------|
+| `@vibecoder/control-plane` | Standalone Node.js server - runs Claude Agent SDK, manages Git state, performs file I/O. **Stateful - Source of Truth.** | 3001 |
+| `@vibecoder/client` | React Overlay component + implementation functions for Server Actions. Installed in user's Next.js app. **Stateless - UI only.** | 3000 |
 
-// Global State
-const threads = new Map<string, Thread>();
+### 1.1 Communication Model
 
-2.3 API Contract (HTTP)
-The Server Action from the client will consume these endpoints.
-POST /threads
- * Action:
-   * Generate threadId.
-   * Check for uncommitted changes in current context. If dirty, auto-commit to current branch or stash.
-   * Create new git branch: git checkout -b feat/vibe-{threadId}.
-   * Initialize Agent instance for this thread.
- * Response: { threadId, branchName, status: 'IDLE' }
-POST /threads/:id/chat
- * Payload: { message: string }
- * Action:
-   * Verify threadId exists.
-   * Update status to RUNNING.
-   * ASYNC: Invoke Claude Agent SDK.
-     * On Tool execution (Write File): Next.js will likely restart here.
-     * On Agent Idle: Execute git add . && git commit -m "Auto: {message_snippet}".
-     * Update lastCommitHash.
-     * Update status to IDLE.
- * Response: { status: 'RUNNING' } (Return immediately, do not wait for agent).
-GET /threads/:id
- * Action: Return full thread object (status, history, last commit).
- * Use Case: Client polling for updates or re-hydrating after HMR.
-POST /threads/:id/merge
- * Action:
-   * git checkout main
-   * git merge feat/vibe-{threadId}
-   * git push origin main
- * Response: { success: true }
-2.4 Agent SDK Integration Details
- * System Prompt: Do not inject file contents. Inject instructions only.
-   * "You are a coding assistant modifying the local codebase."
-   * "Use ls and grep to explore the codebase."
-   * "Always run tsc or a build check if unsure before finishing."
- * Tools: Enable FileSystem, Bash.
- * Permissions: Run in "Auto" mode (no human confirmation required for file writes) since we are protected by Git branches.
-3. Package 2: @vibecoder/client
-Role: The Interface. Embeddable into the user's Next.js App.
-Tech Stack: React, Next.js Server Actions.
-3.1 Directory Structure
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    FUNDAMENTAL DESIGN PRINCIPLE                  │
+├─────────────────────────────────────────────────────────────────┤
+│  • Control Plane is STATEFUL - maintains all thread state       │
+│  • App is STATELESS - can restart at any time (HMR/crash)       │
+│  • All commands return IMMEDIATELY (acknowledgment only)        │
+│  • App POLLS for current state when needed                      │
+│  • Never rely on the app staying up                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Flow:**
+1. Client sends command (create, chat, merge, switch, push)
+2. Control Plane acknowledges immediately (`{ success: true }`)
+3. Control Plane executes work in background
+4. Client polls `GET /threads/:id` for state updates
+5. Client updates UI based on polled state
+
+---
+
+## 2. Package 1: @vibecoder/control-plane
+
+**Role:** The Brain. Runs indefinitely, survives Next.js HMR restarts.  
+**Tech Stack:** Node.js, Fastify, simple-git, @anthropic-ai/sdk
+
+### 2.1 Server Configuration
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| Port | 3001 (configurable via `VIBE_PORT`) | |
+| Host | `127.0.0.1` | Security: localhost only |
+| Working Directory | `process.cwd()` | User's project root where `.git` lives |
+
+### 2.2 Data Structures
+
+Thread state is maintained in-memory as a `Map<string, Thread>`.
+
+Key concepts:
+- **ThreadStatus**: `IDLE` | `RUNNING` | `ERROR`
+- **OperationType**: `creating` | `switching` | `merging` | `pushing` | `null`
+- **Thread**: Contains id, branchName, status, history, operation, etc.
+
+> See: `packages/control-plane/src/types.ts`
+
+### 2.3 API Contract (HTTP)
+
+All mutating endpoints return **immediately**. Background work updates thread state. Client polls for completion.
+
+| Endpoint | Method | Action | Response |
+|----------|--------|--------|----------|
+| `/health` | GET | Health check | `{ status, workingDir }` |
+| `/threads` | GET | List all threads | `ThreadStateResponse[]` |
+| `/threads` | POST | Create thread (async) | `{ threadId, branchName, status }` |
+| `/threads/:id` | GET | Get thread state | `ThreadStateResponse` |
+| `/threads/:id/chat` | POST | Send message (async) | `{ status: 'RUNNING' }` |
+| `/threads/:id/merge` | POST | Merge to main (async) | `{ success: true }` |
+| `/threads/:id/switch` | POST | Switch branch (async) | `{ success: true }` |
+| `/threads/:id/push` | POST | Push to remote (async) | `{ success: true }` |
+
+> See: `packages/control-plane/src/server.ts`
+
+### 2.4 Agent SDK Integration
+
+System prompt instructs Claude to:
+- Use `ls` and `grep` to explore before making changes
+- Run `tsc` or build checks when unsure
+- Make targeted, minimal changes
+- Explain actions as it goes
+
+**Tools provided:** `bash`, `read_file`, `write_file`, `list_files`
+
+> See: `packages/control-plane/src/agent.ts`
+
+### 2.5 Git Manager
+
+Wraps `simple-git` with exponential backoff retry logic (5 retries) for lock conflicts.
+
+Handles: `index.lock`, "Unable to create", "Another git process" errors.
+
+> See: `packages/control-plane/src/git.ts`
+
+---
+
+## 3. Package 2: @vibecoder/client
+
+**Role:** The Interface. Embeddable into user's Next.js App.  
+**Tech Stack:** React, Next.js Server Actions
+
+### 3.1 Directory Structure
+
+```
 /src
   /components
-    VibeOverlay.tsx  <-- The UI
-  /actions
-    proxy.ts         <-- The Bridge
-  /index.ts          <-- Exports
+    VibeOverlay.tsx     <-- Main UI component
+    LockScreen.tsx      <-- Password authentication gate
+  /lib
+    controlPlane.ts     <-- Implementation functions (NOT server actions)
+  /types.ts             <-- Shared TypeScript types
+  /index.ts             <-- Public exports
+```
 
-3.2 Security (The Password Gate)
- * Logic:
-   * Check process.env.VIBE_PASSWORD on server.
-   * If not set, disable Vibe Coder (or warn).
-   * If set, VibeOverlay checks for a session cookie vibe-auth.
-   * If no cookie, render <LockScreen />.
-   * User enters password -> Server Action verifies -> Sets HTTPOnly cookie.
-3.3 Server Action: proxy.ts
-This acts as a secure tunnel. The browser cannot talk to :3001 directly (CORS/Security).
-'use server'
-import { cookies } from 'next/headers'
+### 3.2 NPM Package Consumption Pattern
 
-const CONTROL_PLANE_URL = 'http://127.0.0.1:3001';
+Since Server Actions cannot be directly exported from npm packages, we use a delegation pattern:
 
-export async function sendPrompt(threadId: string, message: string) {
-  // 1. Validate Auth Cookie
-  // 2. Fetch Control Plane
-  const res = await fetch(`${CONTROL_PLANE_URL}/threads/${threadId}/chat`, {
-    method: 'POST',
-    body: JSON.stringify({ message })
-  });
-  return res.json();
-}
+1. Package exports implementation functions from `@vibecoder/client/lib/controlPlane`
+2. User creates their own Server Actions that delegate to these functions
+3. User passes actions to `VibeOverlay` as props
 
-export async function getThreadState(threadId: string) {
-  // Same logic, GET request
-}
+> See: `packages/client/src/lib/controlPlane.ts` for implementation functions  
+> See: `packages/client/src/types.ts` for `VibeActions` interface
 
-3.4 Component: VibeOverlay.tsx
- * Mount Logic:
-   * Check localStorage.getItem('vibe_active_thread_id').
-   * If exists, immediately call getThreadState(id) via Server Action.
-   * This handles the HMR/Page Reload scenario.
- * Rendering:
-   * Fixed position bottom-4 right-4.
-   * Maximize/Minimize toggle.
-   * Chat Interface (User msg / Agent msg).
-   * "Thinking" indicator when status === RUNNING.
-4. Integration & Development Experience (DevX)
-4.1 CLI Runner
-The user should not run two commands manually. Create a bin script in @vibecoder/control-plane.
-bin/vibe-dev.js:
-#!/usr/bin/env node
-const { spawn } = require('child_process');
+### 3.3 Security: Multi-Layer Production Protection
 
-// 1. Start the Control Plane
-const cp = spawn('node', ['server.js'], { stdio: 'inherit' });
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PRODUCTION SAFETY LAYERS                      │
+├─────────────────────────────────────────────────────────────────┤
+│  Layer 1: VibeOverlay returns null in production                │
+│  Layer 2: controlPlane.ts functions return error in production  │
+│  Layer 3: Control Plane only binds to 127.0.0.1                 │
+│  Layer 4: Password authentication required                       │
+│  Layer 5: HTTPOnly cookies for session                          │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-// 2. Start Next.js
-const next = spawn('next', ['dev'], { stdio: 'inherit' });
+Escape hatch: `dangerouslyAllowProduction` option (not recommended).
 
-// Handle exit
-process.on('SIGINT', () => {
-  cp.kill();
-  next.kill();
-});
+### 3.4 Component: VibeOverlay.tsx
 
-4.2 User Installation
- * npm install @vibecoder/client @vibecoder/control-plane --save-dev
- * Add to layout.tsx:
-   import { VibeOverlay } from '@vibecoder/client';
+**State Management:**
+- Uses `localStorage` for `vibe_active_thread_id` persistence
+- Polls every 2 seconds when `thread.status === 'RUNNING'` or `thread.operation !== null`
+- All state comes from Control Plane via polling
 
-export default function Layout({ children }) {
-  return (
-    <html>
-      <body>
-        {children}
-        {process.env.NODE_ENV === 'development' && <VibeOverlay />}
-      </body>
-    </html>
-  )
-}
+**UI Elements:**
+| Element | Purpose |
+|---------|---------|
+| FAB | Minimize/expand toggle |
+| LockScreen | Password gate when not authenticated |
+| Branch Bar | Current branch, operation status, action buttons |
+| Thread List | Dropdown to switch between sessions |
+| Messages | Chat history with tool use visualization |
+| Input | Send prompts to Claude |
 
- * Add VIBE_PASSWORD=1234 to .env.local.
- * Run npx vibe-dev.
-5. Critical Edge Cases (Instructions for Agent)
- * Git Lock: If the Next.js watcher and the Control Plane Git logic fight over the .git/index.lock, the Control Plane must implement a retry mechanism for git commands with exponential backoff.
- * Port Conflict: If 3001 is taken, fail fast with a clear error message: "Vibe Coder requires port 3001".
- * Lost State: If the Control Plane crashes, the Client will receive connection refused errors. The Client UI must show a "Disconnected - Restart Terminal" badge.
-6. Implementation Checklist for Agent
- * [ ] Repo Setup: Initialize monorepo with npm workspaces.
- * [ ] Control Plane: Scaffold Fastify server + simple-git wrapper.
- * [ ] Control Plane: Implement the Thread state machine.
- * [ ] Control Plane: Integrate ClaudeAgentClient. Crucial: Ensure cwd is passed correctly.
- * [ ] Client: Build proxy.ts Server Actions with error handling for fetch failures.
- * [ ] Client: Build VibeOverlay.tsx with polling interval (e.g., 2 seconds) when status is RUNNING.
- * [ ] Glue: Create the vibe-dev runner script.
- * [ ] 
+> See: `packages/client/src/components/VibeOverlay.tsx`
+
+---
+
+## 4. CLI Runner
+
+The `vibe-dev` script starts both Control Plane and Next.js dev server.
+
+> See: `packages/control-plane/bin/vibe-dev.js`
+
+---
+
+## 5. Critical Edge Cases
+
+| Case | Handling |
+|------|----------|
+| **Git Lock Conflict** | `GitManager.withRetry()` - exponential backoff, 5 retries |
+| **Port 3001 In Use** | Fail fast with clear error message |
+| **Control Plane Down** | Client shows "Disconnected" badge, retries every 10s |
+| **HMR Restart** | Client recovers state from Control Plane via `localStorage` thread ID |
+| **Concurrent Operations** | Reject with error if `operation !== null` |
+| **Thread Deleted** | Client detects 404, clears localStorage, shows welcome screen |
+| **Production Deployment** | Multiple layers prevent any functionality |
+
+---
+
+## 6. Implementation Checklist
+
+- [x] Repo Setup: pnpm workspaces + Turborepo
+- [x] Control Plane: Fastify server with localhost-only binding
+- [x] Control Plane: GitManager with retry logic
+- [x] Control Plane: Thread state machine with async operations
+- [x] Control Plane: Anthropic SDK with tools
+- [x] Control Plane: switch, push, merge endpoints (all async)
+- [x] Client: controlPlane.ts implementation functions with production guard
+- [x] Client: VibeOverlay.tsx with polling
+- [x] Client: LockScreen.tsx for password auth
+- [x] Client: Thread switching UI
+- [x] Client: Push/merge buttons with operation status
+- [x] CLI: vibe-dev runner script
+- [x] Security: Multi-layer production protection
+- [x] DevOps: GitHub Actions for lint/typecheck/build
