@@ -19,11 +19,6 @@ const DEFAULT_CONTROL_PLANE_URL = "http://127.0.0.1:3001";
 
 export interface ControlPlaneConfig {
   url?: string;
-  /** 
-   * Override the production check. Only use this if you REALLY know what you're doing.
-   * Setting this to true in production is a SECURITY RISK.
-   */
-  dangerouslyAllowProduction?: boolean;
 }
 
 /**
@@ -36,8 +31,8 @@ function isProduction(): boolean {
 /**
  * Production guard - returns error result if in production
  */
-function productionGuard<T>(config?: ControlPlaneConfig): ActionResult<T> | null {
-  if (isProduction() && !config?.dangerouslyAllowProduction) {
+function productionGuard<T>(): ActionResult<T> | null {
+  if (isProduction()) {
     console.error(
       "[VibeNext] SECURITY ERROR: Vibe Next is disabled in production. " +
       "This is a development-only tool that should never be exposed in production environments."
@@ -59,7 +54,7 @@ async function controlPlaneFetch<T>(
   config?: ControlPlaneConfig
 ): Promise<ActionResult<T>> {
   // Block in production
-  const productionError = productionGuard<T>(config);
+  const productionError = productionGuard<T>();
   if (productionError) return productionError;
 
   const baseUrl = config?.url || process.env.VIBENEXT_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE_URL;

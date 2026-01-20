@@ -180,8 +180,6 @@ Vibe Next is a **development-only tool** with automatic production protection:
 3. Control plane only binds to localhost (`127.0.0.1`)
 4. Password authentication via HTTP-only cookies
 
-**Override (not recommended):** For staging environments, pass `dangerouslyAllowProduction={true}` to `VibeOverlay` and `{ dangerouslyAllowProduction: true }` to implementation functions.
-
 ## Development
 
 ### Setup

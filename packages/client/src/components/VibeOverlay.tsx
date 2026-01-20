@@ -6,7 +6,6 @@ import { LockScreen } from "./LockScreen.js";
 
 export interface VibeOverlayProps {
   actions: VibeActions;
-  dangerouslyAllowProduction?: boolean;
 }
 
 const STORAGE_KEY = "vibe_active_thread_id";
@@ -143,8 +142,8 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
-export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: VibeOverlayProps) {
-  const shouldDisable = isProduction() && !dangerouslyAllowProduction;
+export function VibeOverlay({ actions }: VibeOverlayProps) {
+  const shouldDisable = isProduction();
 
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);

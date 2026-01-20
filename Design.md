@@ -144,8 +144,6 @@ Since Server Actions cannot be directly exported from npm packages, we use a del
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Escape hatch: `dangerouslyAllowProduction` option (not recommended).
-
 ### 3.4 Component: VibeOverlay.tsx
 
 **State Management:**
