@@ -3,6 +3,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { createDevServerManager } from "../dist/dev-server-manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,6 +15,12 @@ console.log("Starting Control Plane and Next.js...\n");
 
 // Track child processes for cleanup
 const processes = [];
+
+// Create the dev server manager for Next.js
+const devServerManager = createDevServerManager(process.cwd(), (msg) => console.log(msg));
+
+// Detect package manager early
+devServerManager.detectPackageManager();
 
 // Start the Control Plane
 console.log("📡 Starting Control Plane (port 3001)...");
@@ -38,33 +45,27 @@ controlPlane.on("exit", (code) => {
 
 // Wait a moment for the control plane to start, then start Next.js
 setTimeout(() => {
-  console.log("🚀 Starting Next.js (port 3000)...\n");
-  
-  // Note: shell: true is required for cross-platform compatibility (Windows uses npx.cmd)
-  // This is safe here because the command is static and not derived from user input
-  const nextDev = spawn("npx", ["next", "dev"], {
-    stdio: "inherit",
-    cwd: process.cwd(),
-    env: { ...process.env },
-    shell: true,
-  });
-  processes.push(nextDev);
+  // Start Next.js via the dev server manager
+  const nextProcess = devServerManager.startNextDev();
+  processes.push(nextProcess);
 
-  nextDev.on("error", (err) => {
-    console.error("❌ Failed to start Next.js:", err.message);
-  });
+  // Start watching package.json for changes
+  devServerManager.startPackageJsonWatcher();
 
-  nextDev.on("exit", (code) => {
-    if (code !== 0 && code !== null) {
-      console.error(`❌ Next.js exited with code ${code}`);
-    }
-    cleanup();
-  });
+  console.log("\n✨ Vibe Coder is ready!\n");
+  console.log("   📡 Control Plane: http://localhost:3001");
+  console.log("   🚀 Next.js:       http://localhost:3000");
+  console.log("\n   👀 Watching package.json for changes (will auto-reinstall)\n");
 }, 1000);
 
 // Cleanup function
-function cleanup() {
+async function cleanup() {
   console.log("\n🛑 Shutting down Vibe Coder...\n");
+
+  // Cleanup the dev server manager (stops watcher and Next.js)
+  await devServerManager.cleanup();
+
+  // Kill any remaining processes
   for (const proc of processes) {
     if (!proc.killed) {
       proc.kill("SIGTERM");
