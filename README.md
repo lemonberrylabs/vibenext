@@ -31,7 +31,7 @@ Vibe Next adds an AI coding assistant overlay to your Next.js development enviro
 - A Next.js 14+ application
 - An [Anthropic API key](https://console.anthropic.com/)
 
-### Installation
+### Installation & Setup
 
 ```bash
 npm install -D vibenext
@@ -41,7 +41,7 @@ pnpm add -D vibenext
 yarn add -D vibenext
 ```
 
-### Setup
+### Follow these easy steps to integrate Vibe Next into your Next.js application:
 
 <details>
 <summary><strong>1. Add environment variables</strong></summary>
