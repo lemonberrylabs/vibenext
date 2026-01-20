@@ -1,4 +1,7 @@
-import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
+export interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export type ThreadStatus = "IDLE" | "RUNNING" | "ERROR";
 
@@ -10,7 +13,7 @@ export interface Thread {
   branchName: string;
   createdAt: number;
   status: ThreadStatus;
-  history: MessageParam[];
+  history: Message[];
   lastCommitHash: string | null;
   errorMessage?: string;
   /** Current async operation in progress (switch, merge, push) */
@@ -36,7 +39,7 @@ export interface ThreadStateResponse {
   branchName: string;
   createdAt: number;
   status: ThreadStatus;
-  history: MessageParam[];
+  history: Message[];
   lastCommitHash: string | null;
   errorMessage?: string;
   /** Current async operation in progress */

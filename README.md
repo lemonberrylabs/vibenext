@@ -29,7 +29,7 @@ Vibe Next adds an AI coding assistant overlay to your Next.js development enviro
 
 - Node.js 18+
 - A Next.js 14+ application
-- An [Anthropic API key](https://console.anthropic.com/)
+- [Claude Code](https://claude.ai/claude-code) installed and authenticated with a Claude subscription
 
 ### Installation & Setup
 
@@ -50,7 +50,6 @@ Create or update `.env.local`:
 
 ```env
 VIBENEXT_PASSWORD=your_secret_password
-ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 </details>
@@ -226,10 +225,8 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
 | Variable                     | Required | Default                 | Description                    |
 | ---------------------------- | :------: | ----------------------- | ------------------------------ |
 | `VIBENEXT_PASSWORD`          |   Yes    | —                       | Password to access the overlay |
-| `ANTHROPIC_API_KEY`          |   Yes    | —                       | Your Anthropic API key         |
 | `VIBENEXT_PORT`              |    No    | `3001`                  | Control plane port             |
 | `VIBENEXT_CONTROL_PLANE_URL` |    No    | `http://127.0.0.1:3001` | Control plane URL              |
-| `VIBENEXT_ANTHROPIC_MODEL`   |    No    | `claude-opus-4-5`       | Anthropic model to use         |
 
 ## Security
 

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import {
@@ -27,10 +28,13 @@ const HOST = "127.0.0.1"; // Security: Only bind to localhost
 const WORKING_DIR = process.cwd();
 
 async function main() {
-  // Validate required environment variables
-  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
-    console.error("\n[VibeNext Control Plane] ERROR: ANTHROPIC_API_KEY is not set or is empty.");
-    console.error("[VibeNext Control Plane] Please set ANTHROPIC_API_KEY in your .env.local file.\n");
+  // Validate Claude Code is installed and authenticated
+  try {
+    execFileSync("claude", ["--version"], { stdio: "ignore" });
+  } catch {
+    console.error("\n[VibeNext Control Plane] ERROR: Claude Code is not installed or not in PATH.");
+    console.error("[VibeNext Control Plane] Install: curl -fsSL https://claude.ai/install.sh | bash");
+    console.error("[VibeNext Control Plane] Then run: claude login\n");
     process.exit(1);
   }
 
