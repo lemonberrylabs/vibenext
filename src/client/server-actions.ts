@@ -6,7 +6,7 @@
  * ```typescript
  * // app/actions/vibe.ts
  * "use server";
- * export * from "@vibenext/client/server-actions";
+ * export * from "vibenext/server-actions";
  * ```
  */
 

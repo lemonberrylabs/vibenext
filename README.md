@@ -4,10 +4,12 @@ An AI-powered coding assistant that runs as a sidecar to your Next.js applicatio
 
 ## Quick Start
 
-### 1. Install packages
+### 1. Install the package
 
 ```bash
-pnpm add -D @vibenext/client @vibenext/control-plane
+npm install -D vibenext
+# or
+pnpm add -D vibenext
 ```
 
 ### 2. Add environment variables
@@ -39,7 +41,7 @@ import {
   listThreads as _listThreads,
   switchThread as _switchThread,
   checkHealth as _checkHealth,
-} from "@vibenext/client/server-actions";
+} from "vibenext/server-actions";
 
 export async function authenticate(password: string) {
   return _authenticate(password);
@@ -97,7 +99,7 @@ export async function checkHealth() {
 Update `app/layout.tsx`:
 
 ```tsx
-import { VibeOverlay } from "@vibenext/client";
+import { VibeOverlay } from "vibenext";
 import {
   authenticate,
   checkAuth,
@@ -184,6 +186,8 @@ Vibe Next is a **development-only tool** with automatic production protection:
 
 ### Setup
 
+Examples with pnpm but you can use any package manager.
+
 ```bash
 pnpm install
 ```
@@ -191,9 +195,9 @@ pnpm install
 ### Build
 
 ```bash
-pnpm build        # Build all packages
+pnpm build        # Build the package
 pnpm typecheck    # Type check without emitting
-pnpm clean        # Clean all dist folders
+pnpm clean        # Clean dist folder
 ```
 
 ### Local Development
@@ -202,15 +206,10 @@ To test changes locally in another project:
 
 ```bash
 # In your Next.js project
-pnpm add @vibenext/client@file:../vibenext/packages/client
-pnpm add @vibenext/control-plane@file:../vibenext/packages/control-plane
+pnpm add vibenext@file:../vibenext
 ```
 
 Changes to the source are reflected after running `pnpm build` in the vibenext repo (no reinstall needed with `file:` protocol).
-
-### Versioning
-
-Use [changesets](https://github.com/changesets/changesets) or manually bump versions in both `packages/client/package.json` and `packages/control-plane/package.json` before publishing.
 
 ## License
 

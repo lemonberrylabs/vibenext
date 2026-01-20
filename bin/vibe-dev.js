@@ -3,12 +3,12 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { createDevServerManager } from "../dist/dev-server-manager.js";
+import { createDevServerManager } from "../dist/server/dev-server-manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const CONTROL_PLANE_SCRIPT = join(__dirname, "..", "dist", "server.js");
+const CONTROL_PLANE_SCRIPT = join(__dirname, "..", "dist", "server", "server.js");
 
 console.log("\n🎨 Vibe Next - Development Mode\n");
 console.log("Starting Control Plane and Next.js...\n");

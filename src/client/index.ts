@@ -18,9 +18,5 @@ export type {
   VibeActions,
 } from "./types.js";
 
-// Implementation functions are exported from ./lib/controlPlane
-// Users should import them as:
-// import { createThreadImpl, ... } from "@vibenext/client/lib/controlPlane"
-
 // Re-export ControlPlaneConfig type for users who need it
 export type { ControlPlaneConfig } from "./lib/controlPlane.js";
