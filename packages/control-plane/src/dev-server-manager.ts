@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from "node:child_process";
-import { watch, existsSync } from "node:fs";
+import { watch, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import type { FSWatcher } from "node:fs";
 
 type PackageManager = "pnpm" | "npm" | "yarn" | "bun";
@@ -24,6 +25,7 @@ export class DevServerManager {
   private shouldRecover = true;
   private packageManager: PackageManager | null = null;
   private log: (message: string) => void;
+  private lastPackageJsonHash: string | null = null;
 
   constructor(options: DevServerManagerOptions) {
     this.workingDir = options.workingDir;
@@ -242,6 +244,38 @@ export class DevServerManager {
   }
 
   /**
+   * Compute a hash of the package.json content
+   */
+  private getPackageJsonHash(): string | null {
+    const packageJsonPath = join(this.workingDir, "package.json");
+    try {
+      const content = readFileSync(packageJsonPath, "utf-8");
+      return createHash("sha256").update(content).digest("hex");
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Check if package.json content actually changed
+   */
+  private hasPackageJsonChanged(): boolean {
+    const currentHash = this.getPackageJsonHash();
+    if (currentHash === null) {
+      return false;
+    }
+    if (this.lastPackageJsonHash === null) {
+      this.lastPackageJsonHash = currentHash;
+      return false;
+    }
+    if (currentHash !== this.lastPackageJsonHash) {
+      this.lastPackageJsonHash = currentHash;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Start watching package.json for changes
    */
   startPackageJsonWatcher(): void {
@@ -252,6 +286,8 @@ export class DevServerManager {
       return;
     }
 
+    // Store initial hash
+    this.lastPackageJsonHash = this.getPackageJsonHash();
     this.log(`👀 Watching package.json for changes...`);
 
     // Debounce to avoid multiple triggers
@@ -264,7 +300,10 @@ export class DevServerManager {
           clearTimeout(debounceTimer);
         }
         debounceTimer = setTimeout(() => {
-          this.handlePackageJsonChange();
+          // Only trigger if content actually changed
+          if (this.hasPackageJsonChanged()) {
+            this.handlePackageJsonChange();
+          }
         }, 500);
       }
     });

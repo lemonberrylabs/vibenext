@@ -15,6 +15,7 @@ console.log("Starting Control Plane and Next.js...\n");
 
 // Track child processes for cleanup
 const processes = [];
+let isCleaningUp = false;
 
 // Create the dev server manager for Next.js
 const devServerManager = createDevServerManager(process.cwd(), (msg) => console.log(msg));
@@ -60,6 +61,9 @@ setTimeout(() => {
 
 // Cleanup function
 async function cleanup() {
+  if (isCleaningUp) return;
+  isCleaningUp = true;
+
   console.log("\n🛑 Shutting down Vibe Coder...\n");
 
   // Cleanup the dev server manager (stops watcher and Next.js)

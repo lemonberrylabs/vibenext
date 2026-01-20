@@ -27,10 +27,21 @@ import type { ActionResult } from "./types.js";
 const AUTH_COOKIE = "vibe-auth";
 
 /**
+ * Check if running in development mode.
+ * All server actions are disabled in non-development environments.
+ */
+function requireDevelopment(): void {
+  if (process.env.NODE_ENV !== "development") {
+    throw new Error("VibeCoder server actions are only available in development mode");
+  }
+}
+
+/**
  * Authenticate with the VibeCoder password.
  * Uses timing-safe comparison to prevent timing attacks.
  */
 export async function authenticate(password: string) {
+  requireDevelopment();
   const expected = process.env.VIBE_PASSWORD || "";
   const passwordBuffer = Buffer.from(password);
   const expectedBuffer = Buffer.from(expected);
@@ -60,6 +71,7 @@ export async function authenticate(password: string) {
  * Also checks if VIBE_PASSWORD is configured.
  */
 export async function checkAuth() {
+  requireDevelopment();
   if (!process.env.VIBE_PASSWORD) {
     return { authenticated: false, configured: false };
   }
@@ -74,6 +86,7 @@ export async function checkAuth() {
 async function withAuth<T>(
   fn: () => Promise<ActionResult<T>>
 ): Promise<ActionResult<T>> {
+  requireDevelopment();
   const { authenticated } = await checkAuth();
   if (!authenticated) {
     return { success: false, error: "Not authenticated" };
@@ -110,7 +123,8 @@ export async function switchThread(id: string) {
   return withAuth(() => switchThreadImpl(id));
 }
 
-// Health check doesn't need auth
+// Health check doesn't need auth but still requires development mode
 export async function checkHealth() {
+  requireDevelopment();
   return checkHealthImpl();
 }
