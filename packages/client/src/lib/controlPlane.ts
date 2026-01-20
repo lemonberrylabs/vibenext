@@ -102,10 +102,12 @@ async function controlPlaneFetch<T>(
 
 /**
  * Create a new thread
+ * @param baseBranch - Optional base branch to create from (defaults to current branch)
  */
-export async function createThreadImpl(config?: ControlPlaneConfig): Promise<ActionResult<CreateThreadResult>> {
+export async function createThreadImpl(baseBranch?: string, config?: ControlPlaneConfig): Promise<ActionResult<CreateThreadResult>> {
   return controlPlaneFetch<CreateThreadResult>("/threads", {
     method: "POST",
+    body: baseBranch ? JSON.stringify({ baseBranch }) : undefined,
   }, config);
 }
 

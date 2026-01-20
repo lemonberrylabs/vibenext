@@ -79,14 +79,18 @@ async function main() {
   });
 
   // Create a new thread (returns immediately, git ops happen in background)
-  fastify.post("/threads", (): CreateThreadResponse => {
-    const thread = createThread(WORKING_DIR);
-    return {
-      threadId: thread.id,
-      branchName: thread.branchName,
-      status: thread.status,
-    };
-  });
+  fastify.post<{ Body: { baseBranch?: string } }>(
+    "/threads",
+    (request): CreateThreadResponse => {
+      const { baseBranch } = request.body || {};
+      const thread = createThread(WORKING_DIR, baseBranch);
+      return {
+        threadId: thread.id,
+        branchName: thread.branchName,
+        status: thread.status,
+      };
+    }
+  );
 
   // Get thread state
   fastify.get<{ Params: { id: string } }>(

@@ -24,12 +24,15 @@ export function getThread(threadId: string): Thread | undefined {
 
 /**
  * Create a new thread with its own Git branch
- * 
+ *
  * Returns IMMEDIATELY with the new thread (operation: "creating").
  * Git branch creation happens in background.
  * Client should poll to see when operation completes.
+ *
+ * @param workingDir - The working directory for git operations
+ * @param baseBranch - Optional base branch to create from (defaults to current branch)
  */
-export function createThread(workingDir: string): Thread {
+export function createThread(workingDir: string, baseBranch?: string): Thread {
   const threadId = uuidv4();
   const branchName = `feat/vibe-${threadId.slice(0, 8)}`;
 
@@ -45,10 +48,10 @@ export function createThread(workingDir: string): Thread {
   };
 
   threads.set(threadId, thread);
-  console.log(`[Threads] Thread ${threadId} registered, creating branch '${branchName}' in background...`);
+  console.log(`[Threads] Thread ${threadId} registered, creating branch '${branchName}' from ${baseBranch || 'current'} in background...`);
 
   // Do git operations in background
-  createThreadAsync(threadId, thread, branchName, workingDir);
+  createThreadAsync(threadId, thread, branchName, workingDir, baseBranch);
 
   return thread;
 }
@@ -57,7 +60,8 @@ async function createThreadAsync(
   threadId: string,
   thread: Thread,
   branchName: string,
-  workingDir: string
+  workingDir: string,
+  baseBranch?: string
 ): Promise<void> {
   const gitManager = getGitManager(workingDir);
 
@@ -71,8 +75,13 @@ async function createThreadAsync(
     }
 
     // Create new branch for this thread
-    console.log(`[Threads] Creating branch '${branchName}'...`);
-    await gitManager.createBranch(branchName);
+    if (baseBranch) {
+      console.log(`[Threads] Creating branch '${branchName}' from '${baseBranch}'...`);
+      await gitManager.createBranchFrom(branchName, baseBranch);
+    } else {
+      console.log(`[Threads] Creating branch '${branchName}' from current branch...`);
+      await gitManager.createBranch(branchName);
+    }
 
     // Mark creation complete
     thread.operation = null;

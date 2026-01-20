@@ -109,12 +109,23 @@ export class GitManager {
   }
 
   /**
-   * Create and checkout a new branch
+   * Create and checkout a new branch from current HEAD
    */
   async createBranch(branchName: string): Promise<void> {
     return this.withRetry(async () => {
       await this.git.checkoutLocalBranch(branchName);
     }, "createBranch");
+  }
+
+  /**
+   * Create and checkout a new branch from a specific base branch
+   */
+  async createBranchFrom(branchName: string, baseBranch: string): Promise<void> {
+    return this.withRetry(async () => {
+      // First checkout the base branch, then create new branch from there
+      await this.git.checkout(baseBranch);
+      await this.git.checkoutLocalBranch(branchName);
+    }, "createBranchFrom");
   }
 
   /**

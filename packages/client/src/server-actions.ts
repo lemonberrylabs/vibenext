@@ -95,8 +95,8 @@ async function withAuth<T>(
 }
 
 // Control plane actions (auth-protected)
-export async function createThread() {
-  return withAuth(() => createThreadImpl());
+export async function createThread(baseBranch?: string) {
+  return withAuth(() => createThreadImpl(baseBranch));
 }
 
 export async function getThreadState(id: string) {

@@ -57,8 +57,8 @@ export interface VibeActions {
   authenticate: (password: string) => Promise<{ success: boolean; error?: string }>;
   /** Check if user is authenticated */
   checkAuth: () => Promise<{ authenticated: boolean; configured: boolean }>;
-  /** Create a new thread/session */
-  createThread: () => Promise<ActionResult<CreateThreadResult>>;
+  /** Create a new thread/session. Pass baseBranch to branch from a specific branch (e.g., "main"), or omit to branch from current. */
+  createThread: (baseBranch?: string) => Promise<ActionResult<CreateThreadResult>>;
   /** Get thread state by ID */
   getThreadState: (threadId: string) => Promise<ActionResult<ThreadState>>;
   /** Send a prompt to the thread */

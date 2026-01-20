@@ -260,9 +260,9 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thread?.history]);
 
-  const handleCreateThread = async () => {
+  const handleCreateThread = async (baseBranch?: string) => {
     setError(null);
-    const result = await actions.createThread();
+    const result = await actions.createThread(baseBranch);
 
     if (result.success && result.data) {
       const newThread: ThreadState = {
@@ -474,18 +474,32 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
         <br />
         Changes isolated on a separate branch.
       </p>
-      <button
-        onClick={handleCreateThread}
-        className="vibe-button"
-        style={styles.createButton}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 10 }}>
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="16" />
-          <line x1="8" y1="12" x2="16" y2="12" />
-        </svg>
-        INITIALIZE SESSION
-      </button>
+      <div style={styles.createButtonGroup}>
+        <button
+          onClick={() => handleCreateThread("main")}
+          className="vibe-button"
+          style={styles.createButton}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
+            <line x1="6" y1="3" x2="6" y2="15" />
+            <circle cx="18" cy="6" r="3" />
+            <circle cx="6" cy="18" r="3" />
+            <path d="M18 9a9 9 0 0 1-9 9" />
+          </svg>
+          START FROM MAIN
+        </button>
+        <button
+          onClick={() => handleCreateThread()}
+          className="vibe-button"
+          style={styles.createButtonSecondary}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+          CONTINUE CURRENT
+        </button>
+      </div>
 
       {allThreads.length > 0 && (
         <div style={styles.existingSessions}>
@@ -1069,9 +1083,16 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.7,
     letterSpacing: "0.03em",
   },
+  createButtonGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    width: "100%",
+    maxWidth: "280px",
+  },
   createButton: {
-    padding: "14px 28px",
-    fontSize: "12px",
+    padding: "14px 24px",
+    fontSize: "11px",
     fontWeight: 600,
     letterSpacing: "0.1em",
     backgroundColor: "rgba(0, 255, 200, 0.12)",
@@ -1082,6 +1103,22 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "all 0.25s ease",
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
+  },
+  createButtonSecondary: {
+    padding: "12px 24px",
+    fontSize: "10px",
+    fontWeight: 600,
+    letterSpacing: "0.1em",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    color: "rgba(255, 255, 255, 0.6)",
+    border: "1px solid rgba(255, 255, 255, 0.12)",
+    borderRadius: "10px",
+    cursor: "pointer",
+    transition: "all 0.25s ease",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   existingSessions: {
     marginTop: "24px",
