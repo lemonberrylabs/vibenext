@@ -1,6 +1,6 @@
 {
   "name": "vibenext",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI-powered coding assistant that runs as a sidecar to your Next.js application",
   "type": "module",
   "license": "MIT",
