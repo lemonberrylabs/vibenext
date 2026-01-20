@@ -167,9 +167,9 @@ Since Server Actions cannot be directly exported from npm packages, we use a del
 
 ## 4. CLI Runner
 
-The `vibe-dev` script starts both Control Plane and Next.js dev server.
+The `vibenext` script starts both Control Plane and Next.js dev server.
 
-> See: `packages/control-plane/bin/vibe-dev.js`
+> See: `bin/vibenext.js`
 
 ---
 
@@ -200,6 +200,6 @@ The `vibe-dev` script starts both Control Plane and Next.js dev server.
 - [x] Client: LockScreen.tsx for password auth
 - [x] Client: Thread switching UI
 - [x] Client: Push/merge buttons with operation status
-- [x] CLI: vibe-dev runner script
+- [x] CLI: vibenext runner script
 - [x] Security: Multi-layer production protection
 - [x] DevOps: GitHub Actions for lint/typecheck/build

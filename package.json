@@ -31,7 +31,7 @@
   "main": "./dist/client/index.js",
   "types": "./dist/client/index.d.ts",
   "bin": {
-    "vibe-dev": "./bin/vibe-dev.js"
+    "vibenext": "./bin/vibenext.js"
   },
   "exports": {
     ".": {
