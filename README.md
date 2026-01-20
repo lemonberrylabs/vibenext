@@ -208,26 +208,6 @@ pnpm add @vibenext/control-plane@file:../vibenext/packages/control-plane
 
 Changes to the source are reflected after running `pnpm build` in the vibenext repo (no reinstall needed with `file:` protocol).
 
-### Publishing to npm
-
-```bash
-# Ensure you're logged in to npm
-npm login
-
-# Build all packages
-pnpm build
-
-# Publish (from repo root)
-pnpm -r publish --access public
-```
-
-Or publish individually:
-
-```bash
-cd packages/client && npm publish --access public
-cd packages/control-plane && npm publish --access public
-```
-
 ### Versioning
 
 Use [changesets](https://github.com/changesets/changesets) or manually bump versions in both `packages/client/package.json` and `packages/control-plane/package.json` before publishing.
