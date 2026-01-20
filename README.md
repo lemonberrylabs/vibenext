@@ -41,7 +41,7 @@ pnpm add -D vibenext
 yarn add -D vibenext
 ```
 
-### Follow these easy steps to integrate Vibe Next into your Next.js application:
+### Integration Steps
 
 <details>
 <summary><strong>1. Add environment variables</strong></summary>
