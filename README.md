@@ -19,18 +19,7 @@ VIBE_PASSWORD=your_secret_password
 ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
-### 3. Configure Next.js
-
-Add `transpilePackages` to your `next.config.ts` (or `.js`/`.mjs`):
-
-```typescript
-const nextConfig: NextConfig = {
-  transpilePackages: ['@vibecoder/client', '@vibecoder/control-plane'],
-  // ... rest of config
-};
-```
-
-### 4. Create server actions
+### 3. Create server actions
 
 Create `app/actions/vibe.ts`:
 
@@ -41,6 +30,8 @@ import {
   authenticate as _authenticate,
   checkAuth as _checkAuth,
   createThread as _createThread,
+  adoptThread as _adoptThread,
+  getCurrentBranch as _getCurrentBranch,
   getThreadState as _getThreadState,
   sendPrompt as _sendPrompt,
   mergeThread as _mergeThread,
@@ -58,8 +49,16 @@ export async function checkAuth() {
   return _checkAuth();
 }
 
-export async function createThread() {
-  return _createThread();
+export async function createThread(baseBranch?: string) {
+  return _createThread(baseBranch);
+}
+
+export async function adoptThread(branchName: string) {
+  return _adoptThread(branchName);
+}
+
+export async function getCurrentBranch() {
+  return _getCurrentBranch();
 }
 
 export async function getThreadState(id: string) {
@@ -93,7 +92,7 @@ export async function checkHealth() {
 
 > **Note:** Next.js 14+ requires explicit async function definitions in "use server" files. Re-exports like `export * from "..."` are not supported.
 
-### 5. Add the overlay to your layout
+### 4. Add the overlay to your layout
 
 Update `app/layout.tsx`:
 
@@ -103,6 +102,8 @@ import {
   authenticate,
   checkAuth,
   createThread,
+  adoptThread,
+  getCurrentBranch,
   getThreadState,
   sendPrompt,
   mergeThread,
@@ -121,6 +122,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           authenticate,
           checkAuth,
           createThread,
+          adoptThread,
+          getCurrentBranch,
           getThreadState,
           sendPrompt,
           mergeThread,
@@ -137,7 +140,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 > **Note:** Pass individual functions as a plain object, not a module object. The overlay automatically disables itself in production.
 
-### 6. Run with the CLI
+### 5. Run with the CLI
 
 ```bash
 npx vibe-dev
@@ -150,6 +153,7 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
 ## Features
 
 - **Isolated Git Branches** - Each session creates a new branch (`feat/vibe-{id}`)
+- **Branch Selection** - Choose to start from main, branch from current, or continue on existing vibe branch
 - **Auto-commit** - Changes are automatically committed after each AI response
 - **Branch Switching** - Switch between multiple unfinished sessions
 - **Push to Remote** - Push your branch to create PRs

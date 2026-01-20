@@ -160,6 +160,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
   const [showThreadList, setShowThreadList] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [currentBranch, setCurrentBranch] = useState<string | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -225,6 +226,13 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     };
   }, [thread?.status, thread?.operation, thread?.id, pollThread]);
 
+  const loadCurrentBranch = useCallback(async () => {
+    const result = await actions.getCurrentBranch();
+    if (result.success && result.data) {
+      setCurrentBranch(result.data.branch);
+    }
+  }, [actions]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -233,6 +241,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
       if (!isConnected) return;
 
       await loadAllThreads();
+      await loadCurrentBranch();
 
       const storedThreadId = localStorage.getItem(STORAGE_KEY);
       if (storedThreadId) {
@@ -254,7 +263,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
     }, 10000);
 
     return () => clearInterval(healthCheckInterval);
-  }, [isAuthenticated, checkConnection, connectionStatus, loadAllThreads, actions]);
+  }, [isAuthenticated, checkConnection, connectionStatus, loadAllThreads, loadCurrentBranch, actions]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -279,6 +288,28 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
       loadAllThreads();
     } else {
       setError(result.error || "Failed to create thread");
+    }
+  };
+
+  const handleAdoptThread = async (branchName: string) => {
+    setError(null);
+    const result = await actions.adoptThread(branchName);
+
+    if (result.success && result.data) {
+      const newThread: ThreadState = {
+        id: result.data.threadId,
+        branchName: result.data.branchName,
+        createdAt: Date.now(),
+        status: result.data.status,
+        history: [],
+        lastCommitHash: null,
+        operation: null, // Ready immediately
+      };
+      setThread(newThread);
+      localStorage.setItem(STORAGE_KEY, newThread.id);
+      loadAllThreads();
+    } else {
+      setError(result.error || "Failed to adopt thread");
     }
   };
 
@@ -475,10 +506,23 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
         Changes isolated on a separate branch.
       </p>
       <div style={styles.createButtonGroup}>
+        {/* Show "Continue here" if on a vibe branch */}
+        {currentBranch?.startsWith("feat/vibe-") && (
+          <button
+            onClick={() => handleAdoptThread(currentBranch)}
+            className="vibe-button"
+            style={styles.createButton}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            CONTINUE HERE
+          </button>
+        )}
         <button
           onClick={() => handleCreateThread("main")}
           className="vibe-button"
-          style={styles.createButton}
+          style={currentBranch?.startsWith("feat/vibe-") ? styles.createButtonSecondary : styles.createButton}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
             <line x1="6" y1="3" x2="6" y2="15" />
@@ -497,7 +541,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
             <polyline points="16 18 22 12 16 6" />
             <polyline points="8 6 2 12 8 18" />
           </svg>
-          CONTINUE CURRENT
+          BRANCH FROM CURRENT
         </button>
       </div>
 

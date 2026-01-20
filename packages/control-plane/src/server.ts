@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import {
   createThread,
+  adoptThread,
   getThread,
   getAllThreads,
   sendMessage,
@@ -9,6 +10,7 @@ import {
   switchToThread,
   pushThread,
 } from "./threads.js";
+import { getGitManager } from "./git.js";
 import type {
   ChatRequest,
   CreateThreadResponse,
@@ -63,6 +65,13 @@ async function main() {
     return { status: "ok", workingDir: WORKING_DIR };
   });
 
+  // Get current git branch
+  fastify.get("/git/current-branch", async () => {
+    const gitManager = getGitManager(WORKING_DIR);
+    const branch = await gitManager.getCurrentBranch();
+    return { branch };
+  });
+
   // List all threads
   fastify.get("/threads", async (): Promise<ThreadStateResponse[]> => {
     const threads = getAllThreads();
@@ -79,10 +88,23 @@ async function main() {
   });
 
   // Create a new thread (returns immediately, git ops happen in background)
-  fastify.post<{ Body: { baseBranch?: string } }>(
+  // If adoptBranch is provided, adopts the existing branch instead of creating a new one
+  fastify.post<{ Body: { baseBranch?: string; adoptBranch?: string } }>(
     "/threads",
     (request): CreateThreadResponse => {
-      const { baseBranch } = request.body || {};
+      const { baseBranch, adoptBranch } = request.body || {};
+
+      if (adoptBranch) {
+        // Adopt existing branch - no new branch creation
+        const thread = adoptThread(WORKING_DIR, adoptBranch);
+        return {
+          threadId: thread.id,
+          branchName: thread.branchName,
+          status: thread.status,
+        };
+      }
+
+      // Create new branch
       const thread = createThread(WORKING_DIR, baseBranch);
       return {
         threadId: thread.id,

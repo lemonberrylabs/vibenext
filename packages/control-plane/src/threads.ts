@@ -98,6 +98,35 @@ async function createThreadAsync(
 }
 
 /**
+ * Adopt an existing branch as a thread (no new branch creation)
+ *
+ * Use this to resume work on an existing vibe branch after restart.
+ * Returns IMMEDIATELY - the thread is ready to use.
+ *
+ * @param workingDir - The working directory for git operations
+ * @param branchName - The existing branch to adopt (e.g., "feat/vibe-abc123")
+ */
+export function adoptThread(_workingDir: string, branchName: string): Thread {
+  const threadId = uuidv4();
+
+  // Create thread record - no git operations needed since branch exists
+  const thread: Thread = {
+    id: threadId,
+    branchName,
+    createdAt: Date.now(),
+    status: "IDLE",
+    history: [],
+    lastCommitHash: null,
+    operation: null, // Ready immediately
+  };
+
+  threads.set(threadId, thread);
+  console.log(`[Threads] Thread ${threadId} adopted existing branch '${branchName}'`);
+
+  return thread;
+}
+
+/**
  * Send a chat message to a thread (async processing)
  * 
  * IMPORTANT: This function returns IMMEDIATELY with RUNNING status.

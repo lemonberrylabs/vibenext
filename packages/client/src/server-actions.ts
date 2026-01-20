@@ -14,11 +14,13 @@ import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
 import {
   createThreadImpl,
+  adoptThreadImpl,
   getThreadStateImpl,
   sendPromptImpl,
   mergeThreadImpl,
   pushThreadImpl,
   checkHealthImpl,
+  getCurrentBranchImpl,
   listThreadsImpl,
   switchThreadImpl,
 } from "./lib/controlPlane.js";
@@ -97,6 +99,14 @@ async function withAuth<T>(
 // Control plane actions (auth-protected)
 export async function createThread(baseBranch?: string) {
   return withAuth(() => createThreadImpl(baseBranch));
+}
+
+export async function adoptThread(branchName: string) {
+  return withAuth(() => adoptThreadImpl(branchName));
+}
+
+export async function getCurrentBranch() {
+  return withAuth(() => getCurrentBranchImpl());
 }
 
 export async function getThreadState(id: string) {

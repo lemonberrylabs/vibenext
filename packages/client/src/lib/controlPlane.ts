@@ -145,6 +145,24 @@ export async function checkHealthImpl(config?: ControlPlaneConfig): Promise<Acti
 }
 
 /**
+ * Get the current git branch
+ */
+export async function getCurrentBranchImpl(config?: ControlPlaneConfig): Promise<ActionResult<{ branch: string }>> {
+  return controlPlaneFetch<{ branch: string }>("/git/current-branch", {}, config);
+}
+
+/**
+ * Adopt an existing branch as a new thread (no branch creation)
+ * Use this to resume work on an existing vibe branch
+ */
+export async function adoptThreadImpl(branchName: string, config?: ControlPlaneConfig): Promise<ActionResult<CreateThreadResult>> {
+  return controlPlaneFetch<CreateThreadResult>("/threads", {
+    method: "POST",
+    body: JSON.stringify({ adoptBranch: branchName }),
+  }, config);
+}
+
+/**
  * List all threads
  */
 export async function listThreadsImpl(config?: ControlPlaneConfig): Promise<ActionResult<ThreadState[]>> {

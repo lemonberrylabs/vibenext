@@ -59,6 +59,10 @@ export interface VibeActions {
   checkAuth: () => Promise<{ authenticated: boolean; configured: boolean }>;
   /** Create a new thread/session. Pass baseBranch to branch from a specific branch (e.g., "main"), or omit to branch from current. */
   createThread: (baseBranch?: string) => Promise<ActionResult<CreateThreadResult>>;
+  /** Adopt an existing branch as a new thread (no branch creation). Use to resume work on existing vibe branch. */
+  adoptThread: (branchName: string) => Promise<ActionResult<CreateThreadResult>>;
+  /** Get the current git branch */
+  getCurrentBranch: () => Promise<ActionResult<{ branch: string }>>;
   /** Get thread state by ID */
   getThreadState: (threadId: string) => Promise<ActionResult<ThreadState>>;
   /** Send a prompt to the thread */
