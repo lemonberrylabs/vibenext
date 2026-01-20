@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 
 const CONTROL_PLANE_SCRIPT = join(__dirname, "..", "dist", "server.js");
 
-console.log("\n🎨 Vibe Coder - Development Mode\n");
+console.log("\n🎨 Vibe Next - Development Mode\n");
 console.log("Starting Control Plane and Next.js...\n");
 
 // Track child processes for cleanup
@@ -53,7 +53,7 @@ setTimeout(() => {
   // Start watching package.json for changes
   devServerManager.startPackageJsonWatcher();
 
-  console.log("\n✨ Vibe Coder is ready!\n");
+  console.log("\n✨ Vibe Next is ready!\n");
   console.log("   📡 Control Plane: http://localhost:3001");
   console.log("   🚀 Next.js:       http://localhost:3000");
   console.log("\n   👀 Watching package.json for changes (will auto-reinstall)\n");
@@ -64,7 +64,7 @@ async function cleanup() {
   if (isCleaningUp) return;
   isCleaningUp = true;
 
-  console.log("\n🛑 Shutting down Vibe Coder...\n");
+  console.log("\n🛑 Shutting down Vibe Next...\n");
 
   // Cleanup the dev server manager (stops watcher and Next.js)
   await devServerManager.cleanup();

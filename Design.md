@@ -1,4 +1,4 @@
-# Technical Design Doc: Vibe Coder (MVP)
+# Technical Design Doc: Vibe Next (MVP)
 
 **Version:** 0.1.0 (Unreleased)  
 **Architecture:** Multi-Process Sidecar  
@@ -12,8 +12,8 @@ The system consists of two distinct npm packages managed in a monorepo.
 
 | Package | Role | Port |
 |---------|------|------|
-| `@vibecoder/control-plane` | Standalone Node.js server - runs Claude Agent SDK, manages Git state, performs file I/O. **Stateful - Source of Truth.** | 3001 |
-| `@vibecoder/client` | React Overlay component + implementation functions for Server Actions. Installed in user's Next.js app. **Stateless - UI only.** | 3000 |
+| `@vibenext/control-plane` | Standalone Node.js server - runs Claude Agent SDK, manages Git state, performs file I/O. **Stateful - Source of Truth.** | 3001 |
+| `@vibenext/client` | React Overlay component + implementation functions for Server Actions. Installed in user's Next.js app. **Stateless - UI only.** | 3000 |
 
 ### 1.1 Communication Model
 
@@ -38,7 +38,7 @@ The system consists of two distinct npm packages managed in a monorepo.
 
 ---
 
-## 2. Package 1: @vibecoder/control-plane
+## 2. Package 1: @vibenext/control-plane
 
 **Role:** The Brain. Runs indefinitely, survives Next.js HMR restarts.  
 **Tech Stack:** Node.js, Fastify, simple-git, @anthropic-ai/sdk
@@ -47,7 +47,7 @@ The system consists of two distinct npm packages managed in a monorepo.
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| Port | 3001 (configurable via `VIBE_PORT`) | |
+| Port | 3001 (configurable via `VIBENEXT_PORT`) | |
 | Host | `127.0.0.1` | Security: localhost only |
 | Working Directory | `process.cwd()` | User's project root where `.git` lives |
 
@@ -101,7 +101,7 @@ Handles: `index.lock`, "Unable to create", "Another git process" errors.
 
 ---
 
-## 3. Package 2: @vibecoder/client
+## 3. Package 2: @vibenext/client
 
 **Role:** The Interface. Embeddable into user's Next.js App.  
 **Tech Stack:** React, Next.js Server Actions
@@ -123,7 +123,7 @@ Handles: `index.lock`, "Unable to create", "Another git process" errors.
 
 Since Server Actions cannot be directly exported from npm packages, we use a delegation pattern:
 
-1. Package exports implementation functions from `@vibecoder/client/lib/controlPlane`
+1. Package exports implementation functions from `@vibenext/client/lib/controlPlane`
 2. User creates their own Server Actions that delegate to these functions
 3. User passes actions to `VibeOverlay` as props
 

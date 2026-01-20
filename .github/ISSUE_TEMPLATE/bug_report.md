@@ -30,8 +30,8 @@ What actually happened.
 - Node.js version: [e.g., 20.10.0]
 - pnpm version: [e.g., 9.15.4]
 - Package versions:
-  - @vibecoder/client: [e.g., 0.1.0]
-  - @vibecoder/control-plane: [e.g., 0.1.0]
+  - @vibenext/client: [e.g., 0.1.0]
+  - @vibenext/control-plane: [e.g., 0.1.0]
 
 ## Additional Context
 

@@ -1,19 +1,19 @@
 {
-  "name": "@vibecoder/client",
+  "name": "@vibenext/client",
   "version": "0.1.0",
-  "description": "React client components for VibeCoder - an AI-powered coding assistant",
+  "description": "React client components for VibeNext - an AI-powered coding assistant",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lemonberrylabs/vibecoder.git",
+    "url": "git+https://github.com/lemonberrylabs/vibenext.git",
     "directory": "packages/client"
   },
   "bugs": {
-    "url": "https://github.com/lemonberrylabs/vibecoder/issues"
+    "url": "https://github.com/lemonberrylabs/vibenext/issues"
   },
-  "homepage": "https://github.com/lemonberrylabs/vibecoder#readme",
-  "keywords": ["vibecoder", "ai", "claude", "nextjs", "react", "coding-assistant"],
+  "homepage": "https://github.com/lemonberrylabs/vibenext#readme",
+  "keywords": ["vibenext", "ai", "claude", "nextjs", "react", "coding-assistant"],
   "files": ["dist", "README.md"],
   "publishConfig": {
     "access": "public"

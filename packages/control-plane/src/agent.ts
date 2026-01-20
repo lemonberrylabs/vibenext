@@ -47,7 +47,7 @@ export class AgentManager {
       let continueLoop = true;
 
       while (continueLoop) {
-        const model = process.env.VIBE_ANTHROPIC_MODEL || "claude-opus-4-5";
+        const model = process.env.VIBENEXT_ANTHROPIC_MODEL || "claude-opus-4-5";
         console.log(`[AgentManager] Calling Claude API (model: ${model})...`);
 
         // Call Claude with current history

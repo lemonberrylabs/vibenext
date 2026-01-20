@@ -20,7 +20,7 @@ export type {
 
 // Implementation functions are exported from ./lib/controlPlane
 // Users should import them as:
-// import { createThreadImpl, ... } from "@vibecoder/client/lib/controlPlane"
+// import { createThreadImpl, ... } from "@vibenext/client/lib/controlPlane"
 
 // Re-export ControlPlaneConfig type for users who need it
 export type { ControlPlaneConfig } from "./lib/controlPlane.js";

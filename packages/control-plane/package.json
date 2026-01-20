@@ -1,19 +1,19 @@
 {
-  "name": "@vibecoder/control-plane",
+  "name": "@vibenext/control-plane",
   "version": "0.1.0",
-  "description": "Control plane server for VibeCoder - an AI-powered coding assistant",
+  "description": "Control plane server for VibeNext - an AI-powered coding assistant",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lemonberrylabs/vibecoder.git",
+    "url": "git+https://github.com/lemonberrylabs/vibenext.git",
     "directory": "packages/control-plane"
   },
   "bugs": {
-    "url": "https://github.com/lemonberrylabs/vibecoder/issues"
+    "url": "https://github.com/lemonberrylabs/vibenext/issues"
   },
-  "homepage": "https://github.com/lemonberrylabs/vibecoder#readme",
-  "keywords": ["vibecoder", "ai", "claude", "coding-assistant", "git", "fastify"],
+  "homepage": "https://github.com/lemonberrylabs/vibenext#readme",
+  "keywords": ["vibenext", "ai", "claude", "coding-assistant", "git", "fastify"],
   "files": ["dist", "bin", "README.md"],
   "publishConfig": {
     "access": "public"

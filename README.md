@@ -1,4 +1,4 @@
-# Vibe Coder
+# Vibe Next
 
 An AI-powered coding assistant that runs as a sidecar to your Next.js application. It uses Claude to make changes to your codebase on isolated Git branches, keeping your main branch safe.
 
@@ -7,7 +7,7 @@ An AI-powered coding assistant that runs as a sidecar to your Next.js applicatio
 ### 1. Install packages
 
 ```bash
-pnpm add -D @vibecoder/client @vibecoder/control-plane
+pnpm add -D @vibenext/client @vibenext/control-plane
 ```
 
 ### 2. Add environment variables
@@ -15,7 +15,7 @@ pnpm add -D @vibecoder/client @vibecoder/control-plane
 Create or update `.env.local`:
 
 ```env
-VIBE_PASSWORD=your_secret_password
+VIBENEXT_PASSWORD=your_secret_password
 ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
@@ -39,7 +39,7 @@ import {
   listThreads as _listThreads,
   switchThread as _switchThread,
   checkHealth as _checkHealth,
-} from "@vibecoder/client/server-actions";
+} from "@vibenext/client/server-actions";
 
 export async function authenticate(password: string) {
   return _authenticate(password);
@@ -97,7 +97,7 @@ export async function checkHealth() {
 Update `app/layout.tsx`:
 
 ```tsx
-import { VibeOverlay } from "@vibecoder/client";
+import { VibeOverlay } from "@vibenext/client";
 import {
   authenticate,
   checkAuth,
@@ -165,15 +165,15 @@ This starts both the Control Plane (port 3001) and Next.js (port 3000).
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `VIBE_PASSWORD` | Yes | - | Password to access the overlay |
+| `VIBENEXT_PASSWORD` | Yes | - | Password to access the overlay |
 | `ANTHROPIC_API_KEY` | Yes | - | Your Anthropic API key |
-| `VIBE_PORT` | No | `3001` | Control plane port |
-| `VIBE_CONTROL_PLANE_URL` | No | `http://127.0.0.1:3001` | Control plane URL |
-| `VIBE_ANTHROPIC_MODEL` | No | `claude-opus-4-5` | Anthropic model to use |
+| `VIBENEXT_PORT` | No | `3001` | Control plane port |
+| `VIBENEXT_CONTROL_PLANE_URL` | No | `http://127.0.0.1:3001` | Control plane URL |
+| `VIBENEXT_ANTHROPIC_MODEL` | No | `claude-opus-4-5` | Anthropic model to use |
 
 ## Security
 
-Vibe Coder is a **development-only tool** with automatic production protection:
+Vibe Next is a **development-only tool** with automatic production protection:
 
 1. `VibeOverlay` returns `null` in production
 2. All API functions refuse to execute in production
@@ -204,11 +204,11 @@ To test changes locally in another project:
 
 ```bash
 # In your Next.js project
-pnpm add @vibecoder/client@file:../vibecoder/packages/client
-pnpm add @vibecoder/control-plane@file:../vibecoder/packages/control-plane
+pnpm add @vibenext/client@file:../vibenext/packages/client
+pnpm add @vibenext/control-plane@file:../vibenext/packages/control-plane
 ```
 
-Changes to the source are reflected after running `pnpm build` in the vibecoder repo (no reinstall needed with `file:` protocol).
+Changes to the source are reflected after running `pnpm build` in the vibenext repo (no reinstall needed with `file:` protocol).
 
 ### Publishing to npm
 

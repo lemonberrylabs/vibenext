@@ -1,12 +1,12 @@
 /**
- * Server action implementations for VibeCoder.
+ * Server action implementations for VibeNext.
  * These are async functions designed to be re-exported as Next.js Server Actions.
  *
  * Usage in your app:
  * ```typescript
  * // app/actions/vibe.ts
  * "use server";
- * export * from "@vibecoder/client/server-actions";
+ * export * from "@vibenext/client/server-actions";
  * ```
  */
 
@@ -34,17 +34,17 @@ const AUTH_COOKIE = "vibe-auth";
  */
 function requireDevelopment(): void {
   if (process.env.NODE_ENV !== "development") {
-    throw new Error("VibeCoder server actions are only available in development mode");
+    throw new Error("VibeNext server actions are only available in development mode");
   }
 }
 
 /**
- * Authenticate with the VibeCoder password.
+ * Authenticate with the VibeNext password.
  * Uses timing-safe comparison to prevent timing attacks.
  */
 export async function authenticate(password: string) {
   requireDevelopment();
-  const expected = process.env.VIBE_PASSWORD || "";
+  const expected = process.env.VIBENEXT_PASSWORD || "";
   const passwordBuffer = Buffer.from(password);
   const expectedBuffer = Buffer.from(expected);
 
@@ -70,11 +70,11 @@ export async function authenticate(password: string) {
 
 /**
  * Check if the user is authenticated.
- * Also checks if VIBE_PASSWORD is configured.
+ * Also checks if VIBENEXT_PASSWORD is configured.
  */
 export async function checkAuth() {
   requireDevelopment();
-  if (!process.env.VIBE_PASSWORD) {
+  if (!process.env.VIBENEXT_PASSWORD) {
     return { authenticated: false, configured: false };
   }
   const cookieStore = await cookies();

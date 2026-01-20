@@ -440,7 +440,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
       <div style={styles.container}>
         <div
           style={styles.fabDisabled}
-          title="VIBE_PASSWORD not configured"
+          title="VIBENEXT_PASSWORD not configured"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -498,7 +498,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
       </div>
 
       <h3 style={styles.welcomeTitle}>
-        <span style={styles.titleHighlight}>VIBE</span>CODER
+        <span style={styles.titleHighlight}>VIBE</span>NEXT
       </h3>
       <p style={styles.welcomeText}>
         Start an AI-assisted coding session.
@@ -832,7 +832,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
                 </svg>
               </span>
               <span style={styles.headerTitle}>
-                <span style={styles.titleHighlight}>VIBE</span>CODER
+                <span style={styles.titleHighlight}>VIBE</span>NEXT
               </span>
             </div>
             <div style={styles.headerRight}>
@@ -862,7 +862,7 @@ export function VibeOverlay({ actions, dangerouslyAllowProduction = false }: Vib
           onClick={() => setIsMinimized(false)}
           className="vibe-fab"
           style={styles.fab}
-          aria-label="Open Vibe Coder"
+          aria-label="Open Vibe Next"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <polygon points="12 2 2 7 12 12 22 7 12 2" />

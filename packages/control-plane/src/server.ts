@@ -20,7 +20,7 @@ import type {
   ErrorResponse,
 } from "./types.js";
 
-const PORT = parseInt(process.env.VIBE_PORT || "3001", 10);
+const PORT = parseInt(process.env.VIBENEXT_PORT || "3001", 10);
 const HOST = "127.0.0.1"; // Security: Only bind to localhost
 
 // Working directory is the user's project root
@@ -29,13 +29,13 @@ const WORKING_DIR = process.cwd();
 async function main() {
   // Validate required environment variables
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
-    console.error("\n[VibeCoder Control Plane] ERROR: ANTHROPIC_API_KEY is not set or is empty.");
-    console.error("[VibeCoder Control Plane] Please set ANTHROPIC_API_KEY in your .env.local file.\n");
+    console.error("\n[VibeNext Control Plane] ERROR: ANTHROPIC_API_KEY is not set or is empty.");
+    console.error("[VibeNext Control Plane] Please set ANTHROPIC_API_KEY in your .env.local file.\n");
     process.exit(1);
   }
 
-  console.log(`[VibeCoder Control Plane] Starting...`);
-  console.log(`[VibeCoder Control Plane] Working directory: ${WORKING_DIR}`);
+  console.log(`[VibeNext Control Plane] Starting...`);
+  console.log(`[VibeNext Control Plane] Working directory: ${WORKING_DIR}`);
 
   const fastify = Fastify({
     logger: {
@@ -213,13 +213,13 @@ async function main() {
   // Start the server
   try {
     await fastify.listen({ port: PORT, host: HOST });
-    console.log(`[VibeCoder Control Plane] Listening on http://${HOST}:${PORT}`);
-    console.log(`[VibeCoder Control Plane] Ready to accept connections`);
+    console.log(`[VibeNext Control Plane] Listening on http://${HOST}:${PORT}`);
+    console.log(`[VibeNext Control Plane] Ready to accept connections`);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "EADDRINUSE") {
-      console.error(`\n[VibeCoder Control Plane] ERROR: Port ${PORT} is already in use.`);
-      console.error(`[VibeCoder Control Plane] Vibe Coder requires port ${PORT} to be available.`);
-      console.error(`[VibeCoder Control Plane] Please free up the port and try again.\n`);
+      console.error(`\n[VibeNext Control Plane] ERROR: Port ${PORT} is already in use.`);
+      console.error(`[VibeNext Control Plane] Vibe Next requires port ${PORT} to be available.`);
+      console.error(`[VibeNext Control Plane] Please free up the port and try again.\n`);
       process.exit(1);
     }
     fastify.log.error(err);

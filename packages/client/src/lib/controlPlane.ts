@@ -39,12 +39,12 @@ function isProduction(): boolean {
 function productionGuard<T>(config?: ControlPlaneConfig): ActionResult<T> | null {
   if (isProduction() && !config?.dangerouslyAllowProduction) {
     console.error(
-      "[VibeCoder] SECURITY ERROR: Vibe Coder is disabled in production. " +
+      "[VibeNext] SECURITY ERROR: Vibe Next is disabled in production. " +
       "This is a development-only tool that should never be exposed in production environments."
     );
     return {
       success: false,
-      error: "Vibe Coder is disabled in production for security reasons.",
+      error: "Vibe Next is disabled in production for security reasons.",
     };
   }
   return null;
@@ -62,7 +62,7 @@ async function controlPlaneFetch<T>(
   const productionError = productionGuard<T>(config);
   if (productionError) return productionError;
 
-  const baseUrl = config?.url || process.env.VIBE_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE_URL;
+  const baseUrl = config?.url || process.env.VIBENEXT_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE_URL;
 
   try {
     // Only set Content-Type if there's a body (Fastify rejects empty bodies with json content-type)
@@ -91,7 +91,7 @@ async function controlPlaneFetch<T>(
     if (error instanceof TypeError && error.message.includes("fetch")) {
       return { 
         success: false, 
-        error: "Cannot connect to Vibe Coder Control Plane. Is it running?" 
+        error: "Cannot connect to Vibe Next Control Plane. Is it running?" 
       };
     }
 

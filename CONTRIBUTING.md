@@ -1,6 +1,6 @@
-# Contributing to Vibe Coder
+# Contributing to Vibe Next
 
-Thank you for your interest in contributing to Vibe Coder! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Vibe Next! This document provides guidelines and instructions for contributing.
 
 ## Development Setup
 
@@ -15,8 +15,8 @@ Thank you for your interest in contributing to Vibe Coder! This document provide
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/vibecoder.git
-   cd vibecoder
+   git clone https://github.com/YOUR_USERNAME/vibenext.git
+   cd vibenext
    ```
 
 3. Install dependencies:
@@ -72,13 +72,13 @@ Thank you for your interest in contributing to Vibe Coder! This document provide
 
 ```
 packages/
-├── client/          # @vibecoder/client - React overlay & implementations
+├── client/          # @vibenext/client - React overlay & implementations
 │   └── src/
 │       ├── components/   # React components
 │       ├── lib/          # Implementation functions
 │       └── types.ts      # TypeScript types
 │
-└── control-plane/   # @vibecoder/control-plane - Node.js server
+└── control-plane/   # @vibenext/control-plane - Node.js server
     └── src/
         ├── server.ts     # Fastify server
         ├── agent.ts      # Claude SDK integration
@@ -88,7 +88,7 @@ packages/
 
 ## Security Considerations
 
-Vibe Coder is a **development-only tool**. When contributing:
+Vibe Next is a **development-only tool**. When contributing:
 
 - Never remove production safeguards
 - Don't expose sensitive operations to the client

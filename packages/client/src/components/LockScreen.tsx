@@ -116,7 +116,7 @@ export function LockScreen({ onAuthenticated, authenticate }: LockScreenProps) {
         setTimeout(() => setShake(false), 500);
       }
     } catch (err) {
-      console.error("[VibeCoder] Authentication error:", err);
+      console.error("[VibeNext] Authentication error:", err);
       setError("Connection failed");
       setShake(true);
       setTimeout(() => setShake(false), 500);
@@ -164,7 +164,7 @@ export function LockScreen({ onAuthenticated, authenticate }: LockScreenProps) {
         {/* Title with gradient */}
         <h2 style={styles.title}>
           <span style={styles.titleGradient}>VIBE</span>
-          <span style={styles.titleAccent}>CODER</span>
+          <span style={styles.titleAccent}>NEXT</span>
         </h2>
 
         <p style={styles.subtitle}>
